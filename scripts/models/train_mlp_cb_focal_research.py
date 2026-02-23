@@ -539,14 +539,14 @@ if __name__ == "__main__":
         y_test_var, preds_var_clean, kept_var_bins, phase_name="baseline"
     )
 
-    # Global metrics (mean per-bin)
+    # Global metrics (mean per-bin) → add as extra columns
     baseline_summary = summarize_per_bin_metrics(per_bin_df_clean)
+    baseline_metrics.update(baseline_summary)
 
-    # Write CSV with two rows
+    # Single-row CSV with all metrics
     baseline_csv_path = f"{OUT_FOLDER}/seg{SEGMENT_ID}_clean_baseline_metrics.csv"
-    df1 = pd.DataFrame([baseline_metrics])
-    df2 = pd.DataFrame([baseline_summary])
-    pd.concat([df1, df2], ignore_index=True).to_csv(baseline_csv_path, index=False)
+    pd.DataFrame([baseline_metrics]).to_csv(baseline_csv_path, index=False)
+
 
     print("Baseline metrics saved.")
 
@@ -595,11 +595,11 @@ if __name__ == "__main__":
     )
 
     robust_summary = summarize_per_bin_metrics(per_bin_df_robust)
+    robust_metrics.update(robust_summary)
 
     robust_csv_path = f"{OUT_FOLDER}/seg{SEGMENT_ID}_robust_{ATTACK}_{PCT}_metrics.csv"
-    df1 = pd.DataFrame([robust_metrics])
-    df2 = pd.DataFrame([robust_summary])
-    pd.concat([df1, df2], ignore_index=True).to_csv(robust_csv_path, index=False)
+    pd.DataFrame([robust_metrics]).to_csv(robust_csv_path, index=False)
+
 
     print("Robustness metrics saved.")
 
@@ -665,7 +665,6 @@ if __name__ == "__main__":
 
     adv_metrics = {**metrics_var_adv, **metrics_full_adv}
 
-    # Per-bin metrics
     per_bin_df_adv = compute_per_bin_metrics(
         yp_test_var_adv,
         preds_var_adv,
@@ -675,14 +674,12 @@ if __name__ == "__main__":
         pct=PCT
     )
 
-    # Global metrics (mean per-bin)
     adv_summary = summarize_per_bin_metrics(per_bin_df_adv)
+    adv_metrics.update(adv_summary)
 
-    # Write CSV with two rows
     adv_csv_path = f"{OUT_FOLDER}/seg{SEGMENT_ID}_advtrain_{ATTACK}_{PCT}_metrics.csv"
-    df1 = pd.DataFrame([adv_metrics])
-    df2 = pd.DataFrame([adv_summary])
-    pd.concat([df1, df2], ignore_index=True).to_csv(adv_csv_path, index=False)
+    pd.DataFrame([adv_metrics]).to_csv(adv_csv_path, index=False)
+
 
     print("Adversarial training metrics saved.\n")
 
