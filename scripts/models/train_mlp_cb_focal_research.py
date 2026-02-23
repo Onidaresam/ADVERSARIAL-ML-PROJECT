@@ -95,18 +95,18 @@ print(f"Constant-zero bins:    {len(constant_zero_bins)}")
 print(f"Constant-one bins:     {len(constant_one_bins)}\n")
 
 # ============================================================
-# HYPERPARAMETERS
+# HYPERPARAMETERS (AGGRESSIVE UPGRADE)
 # ============================================================
 BATCH_SIZE = 256
-EPOCHS = 80
+EPOCHS = 100
 LR = 3e-4
 WEIGHT_DECAY = 1e-4
 
-HIDDEN_DIM = 512
-NUM_BLOCKS = 4
-SE_REDUCTION = 8
+HIDDEN_DIM = 1024
+NUM_BLOCKS = 6
+SE_REDUCTION = 4
 
-EARLY_STOP_PATIENCE = 12
+EARLY_STOP_PATIENCE = 15
 FOCAL_GAMMA = 2.0
 CB_BETA = 0.9999
 MIN_POS_PER_BIN = 20  # filter threshold
@@ -127,8 +127,9 @@ def load_clean_features_labels():
 
 def load_poisoned_features_labels(attack_type, pct):
     if attack_type == "label_flip":
+        pct_str = str(pct).replace(".", "_")
         y_full = pd.read_csv(
-            f"{LABEL_FLIP_FOLDER}/Label_Matrix_{SEGMENT_ID}_flip_{pct}.csv"
+            f"{LABEL_FLIP_FOLDER}/Label_Matrix_{SEGMENT_ID}_flip_{pct_str}.csv"
         ).values
         X, _, _ = load_clean_features_labels()
         y_var = y_full[:, variable_bins]
@@ -149,6 +150,9 @@ def load_poisoned_features_labels(attack_type, pct):
         y_full = pd.read_csv(label_file).values
         y_var = y_full[:, variable_bins]
         return X, y_full, y_var
+
+    else:
+        raise ValueError(f"Unsupported attack type: {attack_type}")
 
 # ============================================================
 # BIN FILTERING (REMOVE EXTREMELY RARE BINS)
@@ -389,7 +393,7 @@ def reconstruct_full(y_var_pred, y_full_true, kept_var_bins):
     return full_pred
 
 # ============================================================
-# PER-BIN METRICS
+# PER-BIN METRICS + GLOBAL SUMMARY
 # ============================================================
 def compute_per_bin_metrics(y_true, y_pred, kept_var_bins, phase_name, attack=None, pct=None):
     n_bins = y_true.shape[1]
@@ -438,6 +442,17 @@ def compute_per_bin_metrics(y_true, y_pred, kept_var_bins, phase_name, attack=No
         f"{DETAIL_FOLDER}/seg{SEGMENT_ID}_{suffix}_perbin_confusion.csv",
         index=False
     )
+
+    return metrics_df
+
+
+def summarize_per_bin_metrics(per_bin_df: pd.DataFrame) -> dict:
+    summary = {}
+    if "accuracy" in per_bin_df.columns:
+        summary["mean_bin_accuracy"] = per_bin_df["accuracy"].mean()
+    if "f1" in per_bin_df.columns:
+        summary["mean_bin_f1"] = per_bin_df["f1"].mean()
+    return summary
 
 # ============================================================
 # MAIN
@@ -520,12 +535,16 @@ if __name__ == "__main__":
 
     baseline_metrics = {**metrics_var_clean, **metrics_full_clean}
 
+    per_bin_df_clean = compute_per_bin_metrics(
+        y_test_var, preds_var_clean, kept_var_bins, phase_name="baseline"
+    )
+    baseline_summary = summarize_per_bin_metrics(per_bin_df_clean)
+    baseline_metrics.update(baseline_summary)
+
     pd.DataFrame([baseline_metrics]).to_csv(
         f"{OUT_FOLDER}/seg{SEGMENT_ID}_clean_baseline_metrics.csv",
         index=False
     )
-
-    compute_per_bin_metrics(y_test_var, preds_var_clean, kept_var_bins, phase_name="baseline")
 
     print("Baseline metrics saved.")
 
@@ -564,18 +583,20 @@ if __name__ == "__main__":
 
     robust_metrics = {**metrics_var_robust, **metrics_full_robust}
 
-    pd.DataFrame([robust_metrics]).to_csv(
-        f"{OUT_FOLDER}/seg{SEGMENT_ID}_robust_{ATTACK}_{PCT}_metrics.csv",
-        index=False
-    )
-
-    compute_per_bin_metrics(
+    per_bin_df_robust = compute_per_bin_metrics(
         yp_test_var,
         preds_var_robust,
         kept_var_bins,
         phase_name="robust",
         attack=ATTACK,
         pct=PCT
+    )
+    robust_summary = summarize_per_bin_metrics(per_bin_df_robust)
+    robust_metrics.update(robust_summary)
+
+    pd.DataFrame([robust_metrics]).to_csv(
+        f"{OUT_FOLDER}/seg{SEGMENT_ID}_robust_{ATTACK}_{PCT}_metrics.csv",
+        index=False
     )
 
     print("Robustness metrics saved.")
@@ -637,18 +658,20 @@ if __name__ == "__main__":
 
     adv_metrics = {**metrics_var_adv, **metrics_full_adv}
 
-    pd.DataFrame([adv_metrics]).to_csv(
-        f"{OUT_FOLDER}/seg{SEGMENT_ID}_advtrain_{ATTACK}_{PCT}_metrics.csv",
-        index=False
-    )
-
-    compute_per_bin_metrics(
+    per_bin_df_adv = compute_per_bin_metrics(
         yp_test_var_adv,
         preds_var_adv,
         kept_var_bins,
         phase_name="advtrain",
         attack=ATTACK,
         pct=PCT
+    )
+    adv_summary = summarize_per_bin_metrics(per_bin_df_adv)
+    adv_metrics.update(adv_summary)
+
+    pd.DataFrame([adv_metrics]).to_csv(
+        f"{OUT_FOLDER}/seg{SEGMENT_ID}_advtrain_{ATTACK}_{PCT}_metrics.csv",
+        index=False
     )
 
     print("Adversarial training metrics saved.\n")
