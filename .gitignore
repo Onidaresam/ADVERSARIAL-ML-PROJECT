@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+.venv
+
+# Data (ignore all CSVs)
+data/**/*.csv
+data/**/*.npy
+data/**/*.npz
+
+# CatBoost logs
+catboost_info/
+
+# Checkpoints / logs
+*.log
+runs/
+checkpoints/
+.git_backup/
