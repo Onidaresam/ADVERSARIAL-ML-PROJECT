@@ -358,12 +358,17 @@ if __name__ == "__main__":
         "f1_full": f1_score(y_test_full, full_pred_clean, average="macro", zero_division=0),
     }
 
-    per_bin_df_clean = compute_per_bin_metrics(y_test_var, preds_var_clean, "baseline")
+    per_bin_df_clean = compute_per_bin_metrics(
+        y_test_var, 
+        preds_var_clean, 
+        f"baseline_{ATTACK}_{PCT}"
+    )
     baseline_summary = summarize_per_bin_metrics(per_bin_df_clean)
     baseline_metrics.update(baseline_summary)
-
+    
+    baseline_filename = f"seg{SEGMENT_ID}_clean_baseline_{ATTACK}_{PCT}_metrics.csv"
     pd.DataFrame([baseline_metrics]).to_csv(
-        f"{OUT_FOLDER}/seg{SEGMENT_ID}_clean_baseline_metrics.csv",
+        f"{OUT_FOLDER}/{baseline_filename}",
         index=False
     )
 
