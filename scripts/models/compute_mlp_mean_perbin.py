@@ -10,8 +10,8 @@ MLP_DETAILS = BASE / "mlp_cb_focal_research_details"
 POISON_PCTS = ["0_5", "1", "5", "10", "20"]
 ATTACKS = ["label_flip", "sensory_add1"]
 
-ACC_COL = "accuracy_full"
-F1_COL = "f1_full"
+ACC_COL = "accuracy"
+F1_COL = "f1"
 
 
 # -----------------------------------------
