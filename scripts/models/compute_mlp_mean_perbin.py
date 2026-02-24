@@ -2,7 +2,7 @@ import pandas as pd
 from pathlib import Path
 
 # -----------------------------------------
-# FIXED PATHS (DO NOT CHANGE)
+# FIXED ABSOLUTE PATHS (MATCH YOUR SETUP)
 # -----------------------------------------
 BASE = Path("/content/drive/MyDrive/ADVERSARIAL_ML_PROJECT/data/segments_time/segment_01/models_reducedscope")
 MLP_DETAILS = BASE / "mlp_cb_focal_research_details"
