@@ -46,6 +46,55 @@ def compute_asenr(pred_clean, pred_poison, poisoned_mask):
     changed = (pred_clean != pred_poison) & clean_positions
     return changed.sum() / clean_positions.sum()
 
+
+# ============================================================
+# NEW HELPER GOES HERE
+# ============================================================
+def compute_asr_asenr_for_files(model, phase, attack, pct,
+                                full_pred_path, ytest_path, poison_flags_path,
+                                pred_clean=None, y_clean=None):
+    """
+    Loads arrays and computes ASR + ASenR using your existing logic.
+    """
+    full_pred = np.load(full_pred_path)
+    y_true = np.load(ytest_path)
+    poison_flags = np.load(poison_flags_path)
+
+    # === Your existing logic reused ===
+    if attack == "label_flip":
+        # y_clean must be passed in for label_flip
+        flipped = (y_clean != y_true)
+        if flipped.sum() == 0:
+            asr = 0.0
+        else:
+            success = (full_pred == y_true) & flipped
+            asr = success.sum() / flipped.sum()
+        poisoned_mask = flipped
+
+    else:  # sensory
+        poisoned_mask = poison_flags.astype(bool)
+        # pred_clean must be passed in for sensory
+        changed = (pred_clean != full_pred) & poisoned_mask
+        asr = changed.sum() / poisoned_mask.sum() if poisoned_mask.sum() > 0 else 0.0
+
+    # ASenR
+    clean_positions = ~poisoned_mask
+    if clean_positions.sum() == 0:
+        asenr = 0.0
+    else:
+        changed_clean = (pred_clean != full_pred) & clean_positions
+        asenr = changed_clean.sum() / clean_positions.sum()
+
+    return {
+        "model": model,
+        "phase": phase,
+        "attack": attack,
+        "pct": pct,
+        "ASR": asr,
+        "ASenR": asenr,
+    }
+
+
 def main():
     rows = []
 
@@ -86,4 +135,51 @@ def main():
     print("Saved:", out_path)
 
 if __name__ == "__main__":
-    main()
+    SEGMENT_ID = "01"
+    BASE = "data"
+    SEG_FOLDER = f"{BASE}/segments_time/segment_{SEGMENT_ID}"
+    TEST_SPLIT_FOLDER = f"{SEG_FOLDER}/models_reducedscope/testsplits_cb_focal_research"  # or unified testsplits folder
+
+    models = ["lr", "mlp", "xgb", "cat"]
+    attacks = ["label_flip", "sensory_add1"]
+    pcts = ["0_5", "1", "5", "10", "20"]
+    phases = ["robust", "advtrain"]  # Option B
+
+    results = []
+
+    for model in models:
+        for attack in attacks:
+            for pct in pcts:
+                for phase in phases:
+                    # Build filename prefix per model/phase
+                    if model == "lr":
+                        prefix = f"seg{SEGMENT_ID}_lr_{phase}_{attack}_{pct}"
+                    elif model == "mlp":
+                        prefix = f"seg{SEGMENT_ID}_mlp_{phase}_{attack}_{pct}"
+                    elif model == "xgb":
+                        prefix = f"seg{SEGMENT_ID}_xgb_{phase}_{attack}_{pct}"
+                    elif model == "cat":
+                        prefix = f"seg{SEGMENT_ID}_cat_{phase}_{attack}_{pct}"
+                    else:
+                        continue
+
+                    full_pred_path = os.path.join(TEST_SPLIT_FOLDER, f"{prefix}_full_pred.npy")
+                    ytest_path = os.path.join(TEST_SPLIT_FOLDER, f"{prefix}_ytest_full.npy")
+                    poison_flags_path = os.path.join(TEST_SPLIT_FOLDER, f"{prefix}_poison_flags.npy")
+
+                    if not (os.path.exists(full_pred_path)
+                            and os.path.exists(ytest_path)
+                            and os.path.exists(poison_flags_path)):
+                        print(f"[SKIP] Missing files for {model} {phase} {attack} {pct}")
+                        continue
+
+                    res = compute_asr_asenr_for_files(
+                        model, phase, attack, pct,
+                        full_pred_path, ytest_path, poison_flags_path
+                    )
+                    results.append(res)
+
+    df = pd.DataFrame(results)
+    df.to_csv(os.path.join(TEST_SPLIT_FOLDER, "asr_asenr_all_models.csv"), index=False)
+    print("Saved ASR/ASenR summary for all models, phases, attacks, and percentages.")
+
