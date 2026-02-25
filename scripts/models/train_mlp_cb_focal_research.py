@@ -391,6 +391,28 @@ def reconstruct_full(y_var_pred, y_full_true, kept_var_bins):
     return full_pred
 
 # ============================================================
+# POISON FLAG HELPER (same logic as LR)
+# ============================================================
+def compute_constant_poison_flags(y_full_true):
+    """
+    Returns an array of shape (N, NUM_BINS) with 1 where a constant bin
+    deviates from its expected clean value, 0 otherwise.
+    Variable bins are always 0 here.
+    """
+    N = y_full_true.shape[0]
+    poison_flags = np.zeros_like(y_full_true, dtype=int)
+
+    if len(constant_zero_bins) > 0:
+        cz_true = y_full_true[:, constant_zero_bins]
+        poison_flags[:, constant_zero_bins] = (cz_true != 0).astype(int)
+
+    if len(constant_one_bins) > 0:
+        co_true = y_full_true[:, constant_one_bins]
+        poison_flags[:, constant_one_bins] = (co_true != 1).astype(int)
+
+    return poison_flags
+
+# ============================================================
 # PER-BIN METRICS + GLOBAL SUMMARY
 # ============================================================
 def compute_per_bin_metrics(y_true, y_pred, kept_var_bins, phase_name, attack=None, pct=None):
@@ -517,6 +539,14 @@ if __name__ == "__main__":
     preds_var_clean = predict_model(model_clean, X_test)
     full_pred_clean = reconstruct_full(preds_var_clean, y_test_full, kept_var_bins)
 
+    # === SAVE BASELINE PREDICTIONS FOR ASR/ASenR ===
+    np.save(f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_mlp_clean_full_pred.npy", full_pred_clean)
+    np.save(f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_mlp_clean_ytest_full.npy", y_test_full)
+
+    poison_flags_clean = compute_constant_poison_flags(y_test_full)
+    np.save(f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_mlp_clean_poison_flags.npy", poison_flags_clean)
+
+
     metrics_var_clean = {
         "accuracy_var": accuracy_score(y_test_var, preds_var_clean),
         "precision_var": precision_score(y_test_var, preds_var_clean, average="macro", zero_division=0),
@@ -539,14 +569,14 @@ if __name__ == "__main__":
         y_test_var, preds_var_clean, kept_var_bins, phase_name="baseline"
     )
 
-    # Global metrics (mean per-bin) → add as extra columns
+    # Global metrics (mean per-bin)
     baseline_summary = summarize_per_bin_metrics(per_bin_df_clean)
-    baseline_metrics.update(baseline_summary)
 
-    # Single-row CSV with all metrics
+    # Write CSV with two rows
     baseline_csv_path = f"{OUT_FOLDER}/seg{SEGMENT_ID}_clean_baseline_metrics.csv"
-    pd.DataFrame([baseline_metrics]).to_csv(baseline_csv_path, index=False)
-
+    df1 = pd.DataFrame([baseline_metrics])
+    df2 = pd.DataFrame([baseline_summary])
+    pd.concat([df1, df2], ignore_index=True).to_csv(baseline_csv_path, index=False)
 
     print("Baseline metrics saved.")
 
@@ -568,6 +598,14 @@ if __name__ == "__main__":
 
     preds_var_robust = predict_model(model_clean, Xp_test)
     full_pred_robust = reconstruct_full(preds_var_robust, yp_test_full, kept_var_bins)
+
+    # === SAVE ROBUSTNESS PREDICTIONS FOR ASR/ASenR ===
+    np.save(f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_mlp_robust_{ATTACK}_{PCT}_full_pred.npy", full_pred_robust)
+    np.save(f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_mlp_robust_{ATTACK}_{PCT}_ytest_full.npy", yp_test_full)
+
+    poison_flags_robust = compute_constant_poison_flags(yp_test_full)
+    np.save(f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_mlp_robust_{ATTACK}_{PCT}_poison_flags.npy", poison_flags_robust)
+
 
     metrics_var_robust = {
         "accuracy_var": accuracy_score(yp_test_var, preds_var_robust),
@@ -595,11 +633,11 @@ if __name__ == "__main__":
     )
 
     robust_summary = summarize_per_bin_metrics(per_bin_df_robust)
-    robust_metrics.update(robust_summary)
 
     robust_csv_path = f"{OUT_FOLDER}/seg{SEGMENT_ID}_robust_{ATTACK}_{PCT}_metrics.csv"
-    pd.DataFrame([robust_metrics]).to_csv(robust_csv_path, index=False)
-
+    df1 = pd.DataFrame([robust_metrics])
+    df2 = pd.DataFrame([robust_summary])
+    pd.concat([df1, df2], ignore_index=True).to_csv(robust_csv_path, index=False)
 
     print("Robustness metrics saved.")
 
@@ -649,6 +687,14 @@ if __name__ == "__main__":
     preds_var_adv = predict_model(model_adv, Xp_test_adv)
     full_pred_adv = reconstruct_full(preds_var_adv, yp_test_full_adv, kept_var_bins)
 
+    # === SAVE ADVTRAIN PREDICTIONS FOR ASR/ASenR ===
+    np.save(f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_mlp_advtrain_{ATTACK}_{PCT}_full_pred.npy", full_pred_adv)
+    np.save(f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_mlp_advtrain_{ATTACK}_{PCT}_ytest_full.npy", yp_test_full_adv)
+
+    poison_flags_adv = compute_constant_poison_flags(yp_test_full_adv)
+    np.save(f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_mlp_advtrain_{ATTACK}_{PCT}_poison_flags.npy", poison_flags_adv)
+
+
     metrics_var_adv = {
         "accuracy_var": accuracy_score(yp_test_var_adv, preds_var_adv),
         "precision_var": precision_score(yp_test_var_adv, preds_var_adv, average="macro", zero_division=0),
@@ -665,6 +711,7 @@ if __name__ == "__main__":
 
     adv_metrics = {**metrics_var_adv, **metrics_full_adv}
 
+    # Per-bin metrics
     per_bin_df_adv = compute_per_bin_metrics(
         yp_test_var_adv,
         preds_var_adv,
@@ -674,12 +721,14 @@ if __name__ == "__main__":
         pct=PCT
     )
 
+    # Global metrics (mean per-bin)
     adv_summary = summarize_per_bin_metrics(per_bin_df_adv)
-    adv_metrics.update(adv_summary)
 
+    # Write CSV with two rows
     adv_csv_path = f"{OUT_FOLDER}/seg{SEGMENT_ID}_advtrain_{ATTACK}_{PCT}_metrics.csv"
-    pd.DataFrame([adv_metrics]).to_csv(adv_csv_path, index=False)
-
+    df1 = pd.DataFrame([adv_metrics])
+    df2 = pd.DataFrame([adv_summary])
+    pd.concat([df1, df2], ignore_index=True).to_csv(adv_csv_path, index=False)
 
     print("Adversarial training metrics saved.\n")
 
