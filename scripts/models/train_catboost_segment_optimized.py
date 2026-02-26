@@ -263,6 +263,20 @@ if __name__ == "__main__":
 
     full_pred_clean = reconstruct_full(preds_var_clean, y_test_full)
 
+    # === SAVE BASELINE PREDICTIONS FOR ASR/ASenR ===
+    np.save(f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_cat_clean_full_pred.npy", full_pred_clean)
+    np.save(f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_cat_clean_ytest_full.npy", y_test_full)
+
+    # Poison flags for CatBoost (same logic as LR/MLP/XGB)
+    poison_flags_clean = np.zeros_like(y_test_full, dtype=int)
+    if len(constant_zero_bins) > 0:
+        poison_flags_clean[:, constant_zero_bins] = (y_test_full[:, constant_zero_bins] != 0).astype(int)
+    if len(constant_one_bins) > 0:
+        poison_flags_clean[:, constant_one_bins] = (y_test_full[:, constant_one_bins] != 1).astype(int)
+
+    np.save(f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_cat_clean_poison_flags.npy", poison_flags_clean)
+
+
     metrics_var_clean = {
         "accuracy_var": accuracy_score(y_test_var, preds_var_clean),
         "precision_var": precision_score(y_test_var, preds_var_clean, average="macro", zero_division=0),
@@ -316,6 +330,19 @@ if __name__ == "__main__":
     print(f"[Time] Robustness prediction completed in {time.time() - t0:.2f}s")
 
     full_pred_robust = reconstruct_full(preds_var_robust, yp_test_full)
+    
+    # === SAVE ROBUSTNESS PREDICTIONS FOR ASR/ASenR ===
+    np.save(f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_cat_robust_{ATTACK}_{PCT}_full_pred.npy", full_pred_robust)
+    np.save(f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_cat_robust_{ATTACK}_{PCT}_ytest_full.npy", yp_test_full)
+
+    poison_flags_robust = np.zeros_like(yp_test_full, dtype=int)
+    if len(constant_zero_bins) > 0:
+        poison_flags_robust[:, constant_zero_bins] = (yp_test_full[:, constant_zero_bins] != 0).astype(int)
+    if len(constant_one_bins) > 0:
+        poison_flags_robust[:, constant_one_bins] = (yp_test_full[:, constant_one_bins] != 1).astype(int)
+
+    np.save(f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_cat_robust_{ATTACK}_{PCT}_poison_flags.npy", poison_flags_robust)
+
 
     metrics_var_robust = {
         "accuracy_var": accuracy_score(yp_test_var, preds_var_robust),
@@ -368,6 +395,19 @@ if __name__ == "__main__":
     print(f"[Time] Adversarial prediction completed in {time.time() - t0:.2f}s")
 
     full_pred_adv = reconstruct_full(preds_var_adv, yp_test_full_adv)
+
+    # === SAVE ADVTRAIN PREDICTIONS FOR ASR/ASenR ===
+    np.save(f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_cat_advtrain_{ATTACK}_{PCT}_full_pred.npy", full_pred_adv)
+    np.save(f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_cat_advtrain_{ATTACK}_{PCT}_ytest_full.npy", yp_test_full_adv)
+
+    poison_flags_adv = np.zeros_like(yp_test_full_adv, dtype=int)
+    if len(constant_zero_bins) > 0:
+        poison_flags_adv[:, constant_zero_bins] = (yp_test_full_adv[:, constant_zero_bins] != 0).astype(int)
+    if len(constant_one_bins) > 0:
+        poison_flags_adv[:, constant_one_bins] = (yp_test_full_adv[:, constant_one_bins] != 1).astype(int)
+
+    np.save(f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_cat_advtrain_{ATTACK}_{PCT}_poison_flags.npy", poison_flags_adv)
+
 
     metrics_var_adv = {
         "accuracy_var": accuracy_score(yp_test_var_adv, preds_var_adv),
