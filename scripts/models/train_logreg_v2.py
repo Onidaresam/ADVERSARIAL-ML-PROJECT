@@ -6,7 +6,12 @@ import joblib
 
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+from sklearn.metrics import (
+    accuracy_score,
+    precision_score,
+    recall_score,
+    f1_score
+)
 
 # ============================================================
 # ARGUMENTS
@@ -101,7 +106,6 @@ def train_lr_models(X_train, y_train):
         unique_vals = np.unique(yj)
 
         if len(unique_vals) == 1:
-            # constant bin
             models.append(("constant", int(unique_vals[0])))
         else:
             clf = LogisticRegression(
@@ -131,6 +135,32 @@ def predict_lr_models(models, X):
             preds[:, j] = obj.predict(X)
 
     return preds
+
+# ============================================================
+# METRICS
+# ============================================================
+def compute_full_matrix_metrics(y_true, y_pred):
+    precision_macro = precision_score(y_true, y_pred, average="macro", zero_division=0)
+    recall_macro = recall_score(y_true, y_pred, average="macro", zero_division=0)
+    f1_macro = f1_score(y_true, y_pred, average="macro", zero_division=0)
+    accuracy_full = accuracy_score(y_true, y_pred)
+    return precision_macro, recall_macro, f1_macro, accuracy_full
+
+def compute_per_bin_metrics(y_true, y_pred):
+    rows = []
+    for j in range(y_true.shape[1]):
+        yt = y_true[:, j]
+        yp = y_pred[:, j]
+
+        acc = accuracy_score(yt, yp)
+        prec = precision_score(yt, yp, zero_division=0)
+        rec = recall_score(yt, yp, zero_division=0)
+        f1 = f1_score(yt, yp, zero_division=0)
+
+        rows.append([j, acc, prec, rec, f1])
+
+    df = pd.DataFrame(rows, columns=["bin_index", "accuracy", "precision", "recall", "f1"])
+    return df
 
 # ============================================================
 # MAIN
@@ -163,6 +193,33 @@ if __name__ == "__main__":
     pred_clean = predict_lr_models(base_models, X_test)
     np.save(f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_lr_clean_pred.npy", pred_clean)
 
+    # Full-matrix metrics
+    p_macro, r_macro, f1_macro, acc_full = compute_full_matrix_metrics(y_test, pred_clean)
+
+    # Per-bin metrics
+    df_bins = compute_per_bin_metrics(y_test, pred_clean)
+    df_bins.to_csv(f"{DETAIL_FOLDER}/seg{SEGMENT_ID}_lr_clean_perbin_metrics.csv", index=False)
+
+    mean_acc = df_bins["accuracy"].mean()
+    mean_f1 = df_bins["f1"].mean()
+
+    # Save main metrics
+    df_main = pd.DataFrame([{
+        "phase": "clean",
+        "attack": "none",
+        "pct": "0",
+        "ASR": 0.0,
+        "ASenR": 0.0,
+        "precision_macro": p_macro,
+        "recall_macro": r_macro,
+        "f1_macro": f1_macro,
+        "accuracy_full": acc_full,
+        "mean_perbin_accuracy": mean_acc,
+        "mean_perbin_f1": mean_f1
+    }])
+
+    df_main.to_csv(f"{OUT_FOLDER}/seg{SEGMENT_ID}_lr_clean_metrics.csv", index=False)
+
     # ========================================================
     # ROBUSTNESS (clean-trained → poisoned test)
     # ========================================================
@@ -186,15 +243,38 @@ if __name__ == "__main__":
         asr = compute_asr_sensory(pred_clean, pred_robust, poisoned_mask)
         asenr = compute_asenr(pred_clean, pred_robust, poisoned_mask)
 
-    df = pd.DataFrame([{
+    # Full-matrix metrics
+    p_macro, r_macro, f1_macro, acc_full = compute_full_matrix_metrics(yp_test, pred_robust)
+
+    # Per-bin metrics
+    df_bins = compute_per_bin_metrics(yp_test, pred_robust)
+    df_bins.to_csv(
+        f"{DETAIL_FOLDER}/seg{SEGMENT_ID}_lr_robust_{ATTACK}_{PCT}_perbin_metrics.csv",
+        index=False
+    )
+
+    mean_acc = df_bins["accuracy"].mean()
+    mean_f1 = df_bins["f1"].mean()
+
+    # Save main metrics
+    df_main = pd.DataFrame([{
         "phase": "robust",
         "attack": ATTACK,
         "pct": PCT,
         "ASR": asr,
-        "ASenR": asenr
+        "ASenR": asenr,
+        "precision_macro": p_macro,
+        "recall_macro": r_macro,
+        "f1_macro": f1_macro,
+        "accuracy_full": acc_full,
+        "mean_perbin_accuracy": mean_acc,
+        "mean_perbin_f1": mean_f1
     }])
 
-    df.to_csv(f"{OUT_FOLDER}/seg{SEGMENT_ID}_lr_robust_{ATTACK}_{PCT}_metrics.csv", index=False)
+    df_main.to_csv(
+        f"{OUT_FOLDER}/seg{SEGMENT_ID}_lr_robust_{ATTACK}_{PCT}_metrics.csv",
+        index=False
+    )
 
     # ========================================================
     # ADVERSARIAL TRAINING (poisoned → poisoned)
@@ -206,10 +286,16 @@ if __name__ == "__main__":
     )
 
     adv_models = train_lr_models(Xp_train, yp_train)
-    joblib.dump(adv_models, f"{OUT_FOLDER}/seg{SEGMENT_ID}_lr_advtrain_{ATTACK}_{PCT}_models.pkl")
+    joblib.dump(
+        adv_models,
+        f"{OUT_FOLDER}/seg{SEGMENT_ID}_lr_advtrain_{ATTACK}_{PCT}_models.pkl"
+    )
 
     pred_adv = predict_lr_models(adv_models, Xp_test_adv)
-    np.save(f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_lr_advtrain_{ATTACK}_{PCT}_pred.npy", pred_adv)
+    np.save(
+        f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_lr_advtrain_{ATTACK}_{PCT}_pred.npy",
+        pred_adv
+    )
 
     # Compute ASR/ASenR
     if ATTACK == "label_flip":
@@ -220,14 +306,37 @@ if __name__ == "__main__":
         asr_adv = compute_asr_sensory(pred_clean, pred_adv, poisoned_mask_adv)
         asenr_adv = compute_asenr(pred_clean, pred_adv, poisoned_mask_adv)
 
-    df2 = pd.DataFrame([{
+    # Full-matrix metrics
+    p_macro, r_macro, f1_macro, acc_full = compute_full_matrix_metrics(yp_test_adv, pred_adv)
+
+    # Per-bin metrics
+    df_bins = compute_per_bin_metrics(yp_test_adv, pred_adv)
+    df_bins.to_csv(
+        f"{DETAIL_FOLDER}/seg{SEGMENT_ID}_lr_advtrain_{ATTACK}_{PCT}_perbin_metrics.csv",
+        index=False
+    )
+
+    mean_acc = df_bins["accuracy"].mean()
+    mean_f1 = df_bins["f1"].mean()
+
+    # Save main metrics
+    df_main = pd.DataFrame([{
         "phase": "advtrain",
         "attack": ATTACK,
         "pct": PCT,
         "ASR": asr_adv,
-        "ASenR": asenr_adv
+        "ASenR": asenr_adv,
+        "precision_macro": p_macro,
+        "recall_macro": r_macro,
+        "f1_macro": f1_macro,
+        "accuracy_full": acc_full,
+        "mean_perbin_accuracy": mean_acc,
+        "mean_perbin_f1": mean_f1
     }])
 
-    df2.to_csv(f"{OUT_FOLDER}/seg{SEGMENT_ID}_lr_advtrain_{ATTACK}_{PCT}_metrics.csv", index=False)
+    df_main.to_csv(
+        f"{OUT_FOLDER}/seg{SEGMENT_ID}_lr_advtrain_{ATTACK}_{PCT}_metrics.csv",
+        index=False
+    )
 
     print("\nLogistic Regression v2 pipeline completed.\n")
