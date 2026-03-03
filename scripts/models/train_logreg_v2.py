@@ -2,10 +2,10 @@ import os
 import argparse
 import numpy as np
 import pandas as pd
+import joblib
 
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
-from sklearn.multioutput import MultiOutputClassifier
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 
 # ============================================================
@@ -92,6 +92,47 @@ def compute_asenr(pred_clean, pred_poison, poisoned_mask):
     return changed.sum() / denom
 
 # ============================================================
+# TRAIN 384 LR MODELS WITH CONSTANT HANDLING
+# ============================================================
+def train_lr_models(X_train, y_train):
+    models = []
+    for j in range(y_train.shape[1]):
+        yj = y_train[:, j]
+        unique_vals = np.unique(yj)
+
+        if len(unique_vals) == 1:
+            # constant bin
+            models.append(("constant", int(unique_vals[0])))
+        else:
+            clf = LogisticRegression(
+                solver="liblinear",
+                penalty="l2",
+                C=0.1,
+                class_weight="balanced",
+                max_iter=1000
+            )
+            clf.fit(X_train, yj)
+            models.append(("model", clf))
+
+    return models
+
+# ============================================================
+# PREDICT USING 384 LR MODELS
+# ============================================================
+def predict_lr_models(models, X):
+    N = X.shape[0]
+    B = len(models)
+    preds = np.zeros((N, B), dtype=int)
+
+    for j, (kind, obj) in enumerate(models):
+        if kind == "constant":
+            preds[:, j] = obj
+        else:
+            preds[:, j] = obj.predict(X)
+
+    return preds
+
+# ============================================================
 # MAIN
 # ============================================================
 if __name__ == "__main__":
@@ -114,21 +155,12 @@ if __name__ == "__main__":
     # ========================================================
     # BASELINE (clean → clean)
     # ========================================================
-    print("\n[BASELINE] Training Logistic Regression on CLEAN data...")
+    print("\n[BASELINE] Training 384 LR models on CLEAN data...")
 
-    base_clf = MultiOutputClassifier(
-        LogisticRegression(
-            solver="liblinear",
-            penalty="l2",
-            C=0.1,
-            class_weight="balanced",
-            max_iter=1000
-        )
-    )
+    base_models = train_lr_models(X_train, y_train)
+    joblib.dump(base_models, f"{OUT_FOLDER}/seg{SEGMENT_ID}_lr_clean_models.pkl")
 
-    base_clf.fit(X_train, y_train)
-    pred_clean = base_clf.predict(X_test)
-
+    pred_clean = predict_lr_models(base_models, X_test)
     np.save(f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_lr_clean_pred.npy", pred_clean)
 
     # ========================================================
@@ -142,7 +174,7 @@ if __name__ == "__main__":
     np.save(f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_{ATTACK}_{PCT}_Xtest.npy", Xp_test)
     np.save(f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_{ATTACK}_{PCT}_ytest.npy", yp_test)
 
-    pred_robust = base_clf.predict(Xp_test)
+    pred_robust = predict_lr_models(base_models, Xp_test)
     np.save(f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_lr_robust_{ATTACK}_{PCT}_pred.npy", pred_robust)
 
     # Compute ASR/ASenR
@@ -150,11 +182,10 @@ if __name__ == "__main__":
         asr, flipped_mask = compute_asr_label_flip(pred_robust, y_clean=y_test, y_poison=yp_test)
         asenr = compute_asenr(pred_clean, pred_robust, flipped_mask)
     else:
-        poisoned_mask = (Xp_test != X_test[:Xp_test.shape[0]])  # RSSI changed
+        poisoned_mask = (Xp_test != X_test[:Xp_test.shape[0]])
         asr = compute_asr_sensory(pred_clean, pred_robust, poisoned_mask)
         asenr = compute_asenr(pred_clean, pred_robust, poisoned_mask)
 
-    # Save metrics
     df = pd.DataFrame([{
         "phase": "robust",
         "attack": ATTACK,
@@ -174,19 +205,10 @@ if __name__ == "__main__":
         Xp, yp, test_size=0.2, shuffle=True
     )
 
-    adv_clf = MultiOutputClassifier(
-        LogisticRegression(
-            solver="liblinear",
-            penalty="l2",
-            C=0.1,
-            class_weight="balanced",
-            max_iter=1000
-        )
-    )
+    adv_models = train_lr_models(Xp_train, yp_train)
+    joblib.dump(adv_models, f"{OUT_FOLDER}/seg{SEGMENT_ID}_lr_advtrain_{ATTACK}_{PCT}_models.pkl")
 
-    adv_clf.fit(Xp_train, yp_train)
-    pred_adv = adv_clf.predict(Xp_test_adv)
-
+    pred_adv = predict_lr_models(adv_models, Xp_test_adv)
     np.save(f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_lr_advtrain_{ATTACK}_{PCT}_pred.npy", pred_adv)
 
     # Compute ASR/ASenR
