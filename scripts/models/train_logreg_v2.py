@@ -46,26 +46,26 @@ os.makedirs(OUT_FOLDER, exist_ok=True)
 os.makedirs(TEST_SPLIT_FOLDER, exist_ok=True)
 os.makedirs(DETAIL_FOLDER, exist_ok=True)
 
-# Determine number of numeric feature columns from clean data
-_df_clean_tmp = pd.read_csv(clean_file)
-_clean_numeric_cols = _df_clean_tmp.select_dtypes(include=[np.number]).columns
-N_FEATURES = len(_clean_numeric_cols)
-del _df_clean_tmp
-
 # ============================================================
 # DATA LOADING
 # ============================================================
 def load_clean():
+    """
+    Cleaned_Data_01.csv structure (confirmed):
+      col0   = timestamp (string)        -> DROP
+      col1..col384 = RSSI features       -> KEEP (384 features)
+      col385 = label (numeric)           -> DROP (labels come from Label_Matrix)
+    """
     df = pd.read_csv(clean_file)
 
-    # Mirror original LR logic: use ALL numeric columns as features
-    numeric_cols = df.select_dtypes(include=[np.number]).columns
-    df_features = df[numeric_cols].astype(np.float32)
+    # Keep only RSSI feature columns: 1..384 (iloc end is exclusive)
+    df_features = df.iloc[:, 1:385].astype(np.float32)
 
     X = df_features.values
-    y = pd.read_csv(label_file).values
+    y = pd.read_csv(label_file).values  # true labels
 
     return X, y
+
 
 def load_poisoned(attack, pct):
     if attack == "label_flip":
@@ -76,7 +76,11 @@ def load_poisoned(attack, pct):
         return X_clean, y_poison
 
     elif attack == "sensory_add1":
-        # Map pct → actual filename in sensory_poison_v2
+        """
+        Sensory poisoning CSV structure (confirmed):
+          col0..col383 = poisoned RSSI features (384 numeric) -> KEEP
+          col384       = extra numeric column                 -> DROP
+        """
         if pct == "0_5":
             sensory_file = f"{SENSORY_FOLDER}/RSSI_continuous_p0_5.csv"
         else:
@@ -84,18 +88,8 @@ def load_poisoned(attack, pct):
 
         dfp = pd.read_csv(sensory_file)
 
-        # Use numeric columns only (ignore timestamp or other non-numeric)
-        num_cols = dfp.select_dtypes(include=[np.number]).columns
-        dfp_num = dfp[num_cols].astype(np.float32)
-
-        # Align sensory features to clean feature count
-        if dfp_num.shape[1] < N_FEATURES:
-            raise ValueError(
-                f"Sensory file {sensory_file} has fewer numeric columns "
-                f"({dfp_num.shape[1]}) than clean data ({N_FEATURES})."
-            )
-
-        dfp_features = dfp_num.iloc[:, :N_FEATURES]
+        # Keep only the first 384 columns as features
+        dfp_features = dfp.iloc[:, 0:384].astype(np.float32)
         X_poison = dfp_features.values
 
         y_clean = pd.read_csv(label_file).values
@@ -115,12 +109,14 @@ def compute_asr_label_flip(pred_poison, y_clean, y_poison):
     success = (pred_poison == y_poison) & flipped_mask
     return success.sum() / denom, flipped_mask
 
+
 def compute_asr_sensory(pred_clean, pred_poison, poisoned_mask):
     denom = poisoned_mask.sum()
     if denom == 0:
         return 0.0
     changed = (pred_clean != pred_poison) & poisoned_mask
     return changed.sum() / denom
+
 
 def compute_asenr(pred_clean, pred_poison, poisoned_mask):
     clean_positions = ~poisoned_mask
@@ -179,6 +175,7 @@ def compute_full_matrix_metrics(y_true, y_pred):
     f1_macro = f1_score(y_true, y_pred, average="macro", zero_division=0)
     accuracy_full = accuracy_score(y_true, y_pred)
     return precision_macro, recall_macro, f1_macro, accuracy_full
+
 
 def compute_per_bin_metrics(y_true, y_pred):
     rows = []
@@ -333,7 +330,9 @@ if __name__ == "__main__":
 
     # Compute ASR/ASenR
     if ATTACK == "label_flip":
-        asr_adv, flipped_mask_adv = compute_asr_label_flip(pred_adv, y_clean=yp_test_adv, y_poison=yp_test_adv)
+        asr_adv, flipped_mask_adv = compute_asr_label_flip(
+            pred_adv, y_clean=yp_test_adv, y_poison=yp_test_adv
+        )
         asenr_adv = compute_asenr(pred_clean, pred_adv, flipped_mask_adv)
     else:
         poisoned_mask_adv = (Xp_test_adv != X_test[:Xp_test_adv.shape[0]])
