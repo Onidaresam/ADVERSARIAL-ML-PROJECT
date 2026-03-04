@@ -65,8 +65,18 @@ def load_poisoned(attack, pct):
         return X_clean, y_poison
 
     elif attack == "sensory_add1":
-        sensory_file = f"{SENSORY_FOLDER}/RSSI_continuous_p{pct}.csv"
-        X_poison = pd.read_csv(sensory_file).astype(float).values
+        # Map pct → actual filename
+        if pct == "0_5":
+            sensory_file = f"{SENSORY_FOLDER}/RSSI_continuous_p0_5.csv"
+        else:
+            sensory_file = f"{SENSORY_FOLDER}/RSSI_continuous_p{pct}_0.csv"
+
+        # Load and trim to 384 columns
+        dfp = pd.read_csv(sensory_file).astype(float)
+        dfp = dfp.iloc[:, :384]   # enforce correct dimensionality
+        X_poison = dfp.values
+
+        # Labels remain clean
         y_clean = pd.read_csv(label_file).values
         return X_poison, y_clean
 
