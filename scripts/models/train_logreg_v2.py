@@ -75,7 +75,7 @@ def load_poisoned(attack, pct):
         X_clean, _ = load_clean()
         return X_clean, y_poison
 
-        elif attack == "sensory_add1":
+    elif attack == "sensory_add1":
         # Map pct → actual filename in sensory_poison_v2
         if pct == "0_5":
             sensory_file = f"{SENSORY_FOLDER}/RSSI_continuous_p0_5.csv"
@@ -101,6 +101,8 @@ def load_poisoned(attack, pct):
         y_clean = pd.read_csv(label_file).values
         return X_poison, y_clean
 
+    else:
+        raise ValueError(f"Unsupported attack type: {attack}")
 
 # ============================================================
 # ASR / ASenR
