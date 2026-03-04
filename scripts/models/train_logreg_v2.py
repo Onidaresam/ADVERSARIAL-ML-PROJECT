@@ -46,22 +46,25 @@ os.makedirs(OUT_FOLDER, exist_ok=True)
 os.makedirs(TEST_SPLIT_FOLDER, exist_ok=True)
 os.makedirs(DETAIL_FOLDER, exist_ok=True)
 
+# Determine number of numeric feature columns from clean data
+_df_clean_tmp = pd.read_csv(clean_file)
+_clean_numeric_cols = _df_clean_tmp.select_dtypes(include=[np.number]).columns
+N_FEATURES = len(_clean_numeric_cols)
+del _df_clean_tmp
+
 # ============================================================
 # DATA LOADING
 # ============================================================
 def load_clean():
     df = pd.read_csv(clean_file)
 
-    # Select only numeric columns (RSSI + label)
+    # Mirror original LR logic: use ALL numeric columns as features
     numeric_cols = df.select_dtypes(include=[np.number]).columns
+    df_features = df[numeric_cols].astype(np.float32)
 
-    # Drop the last numeric column (label), keep the rest as features
-    feature_cols = numeric_cols[:-1]
-
-    df_features = df[feature_cols].astype(float)
     X = df_features.values
-
     y = pd.read_csv(label_file).values
+
     return X, y
 
 def load_poisoned(attack, pct):
@@ -72,22 +75,32 @@ def load_poisoned(attack, pct):
         X_clean, _ = load_clean()
         return X_clean, y_poison
 
-    elif attack == "sensory_add1":
+        elif attack == "sensory_add1":
+        # Map pct → actual filename in sensory_poison_v2
         if pct == "0_5":
             sensory_file = f"{SENSORY_FOLDER}/RSSI_continuous_p0_5.csv"
         else:
             sensory_file = f"{SENSORY_FOLDER}/RSSI_continuous_p{pct}_0.csv"
 
-        df_clean = pd.read_csv(clean_file)
-        numeric_cols = df_clean.select_dtypes(include=[np.number]).columns
-        feature_cols = numeric_cols[:-1]  # same logic as load_clean
-
         dfp = pd.read_csv(sensory_file)
-        dfp_features = dfp[feature_cols].astype(float)
+
+        # Use numeric columns only (ignore timestamp or other non-numeric)
+        num_cols = dfp.select_dtypes(include=[np.number]).columns
+        dfp_num = dfp[num_cols].astype(np.float32)
+
+        # Align sensory features to clean feature count
+        if dfp_num.shape[1] < N_FEATURES:
+            raise ValueError(
+                f"Sensory file {sensory_file} has fewer numeric columns "
+                f"({dfp_num.shape[1]}) than clean data ({N_FEATURES})."
+            )
+
+        dfp_features = dfp_num.iloc[:, :N_FEATURES]
         X_poison = dfp_features.values
 
         y_clean = pd.read_csv(label_file).values
         return X_poison, y_clean
+
 
 # ============================================================
 # ASR / ASenR
