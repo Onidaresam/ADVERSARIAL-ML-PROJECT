@@ -51,8 +51,16 @@ os.makedirs(DETAIL_FOLDER, exist_ok=True)
 # ============================================================
 def load_clean():
     df = pd.read_csv(clean_file)
+
+    # Select only numeric columns (RSSI + label)
     numeric_cols = df.select_dtypes(include=[np.number]).columns
-    X = df[numeric_cols].astype(float).values
+
+    # Drop the last numeric column (label), keep the rest as features
+    feature_cols = numeric_cols[:-1]
+
+    df_features = df[feature_cols].astype(float)
+    X = df_features.values
+
     y = pd.read_csv(label_file).values
     return X, y
 
@@ -65,18 +73,19 @@ def load_poisoned(attack, pct):
         return X_clean, y_poison
 
     elif attack == "sensory_add1":
-        # Map pct → actual filename
         if pct == "0_5":
             sensory_file = f"{SENSORY_FOLDER}/RSSI_continuous_p0_5.csv"
         else:
             sensory_file = f"{SENSORY_FOLDER}/RSSI_continuous_p{pct}_0.csv"
 
-        # Load and trim to 384 columns
-        dfp = pd.read_csv(sensory_file).astype(float)
-        dfp = dfp.iloc[:, :384]   # enforce correct dimensionality
-        X_poison = dfp.values
+        df_clean = pd.read_csv(clean_file)
+        numeric_cols = df_clean.select_dtypes(include=[np.number]).columns
+        feature_cols = numeric_cols[:-1]  # same logic as load_clean
 
-        # Labels remain clean
+        dfp = pd.read_csv(sensory_file)
+        dfp_features = dfp[feature_cols].astype(float)
+        X_poison = dfp_features.values
+
         y_clean = pd.read_csv(label_file).values
         return X_poison, y_clean
 
