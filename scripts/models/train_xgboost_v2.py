@@ -376,6 +376,7 @@ if args.mode == "full":
         Xp, yp, test_size=0.2, shuffle=True
     )
 
+    print("DEBUG: entering adversarial training block")
     adv_models = train_xgb_models(Xp_train, yp_train)
     joblib.dump(
         adv_models,
