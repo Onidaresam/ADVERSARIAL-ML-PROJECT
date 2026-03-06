@@ -17,6 +17,11 @@ from sklearn.metrics import (
 import xgboost as xgb
 import torch
 
+# >>> ADD THIS BLOCK HERE <<< 
+import warnings 
+warnings.filterwarnings("ignore", category=UserWarning) 
+# >>> END OF INSERTION <<<
+
 # ============================================================
 # ARGUMENTS
 # ============================================================
