@@ -32,7 +32,7 @@ ATTACK = args.attack
 # CONFIG
 # ============================================================
 SEGMENT_ID = "01"
-BASE = "/content/drive/MyDrive/ADVERSARIAL_ML_PROJECT/data/segments_time"
+BASE = "/content/drive/MyDrive/ADVERSARIAL_ML_PROJECT/ADVERSARIAL-ML-PROJECT/data/segments_time"
 #BASE = "/kaggle/input/datasets/samuelonidare/adversarial-ml-project-data"
 SEG_FOLDER = f"{BASE}/segment_{SEGMENT_ID}"
 
