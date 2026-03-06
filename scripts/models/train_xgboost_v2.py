@@ -26,6 +26,10 @@ warnings.filterwarnings("ignore", category=UserWarning)
 # ARGUMENTS
 # ============================================================
 parser = argparse.ArgumentParser()
+parser.add_argument("--mode", type=str, default="full",
+                    choices=["full", "adv_only"],
+                    help="full = baseline + robustness + adversarial, adv_only = only adversarial training")
+
 parser.add_argument("--pct", type=str, required=True)
 parser.add_argument("--attack", type=str, required=True, choices=["label_flip", "sensory_add1"])
 args = parser.parse_args()
@@ -261,6 +265,7 @@ if __name__ == "__main__":
     # ========================================================
     # BASELINE (clean → clean)
     # ========================================================
+if args.mode == "full":
     print("\n[BASELINE] Training 384 XGBoost models on CLEAN data...")
     baseline_start = time.time()
 
@@ -302,6 +307,7 @@ if __name__ == "__main__":
     # ========================================================
     # ROBUSTNESS (clean-trained → poisoned test)
     # ========================================================
+if args.mode == "full":
     print(f"\n[ROBUSTNESS] Evaluating clean-trained XGBoost → {ATTACK} {PCT}%")
     robust_start = time.time()
 
