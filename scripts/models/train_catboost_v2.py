@@ -219,162 +219,184 @@ if __name__ == "__main__":
     np.save(f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_clean_ytest.npy", y_test)
 
     # ========================================================
+    # CHECKPOINT PATHS
+    # ========================================================
+    BASELINE_PATH = f"{OUT_FOLDER}/seg{SEGMENT_ID}_cb_clean_models.pkl"
+    ROBUST_PATH   = f"{OUT_FOLDER}/seg{SEGMENT_ID}_cb_robust_{ATTACK}_{PCT}_metrics.csv"
+    ADV_PATH      = f"{OUT_FOLDER}/seg{SEGMENT_ID}_cb_advtrain_{ATTACK}_{PCT}_models.pkl"
+
+    # ========================================================
     # BASELINE (clean → clean)
     # ========================================================
-    print("\n[BASELINE] Training 384 CatBoost models on CLEAN data (GPU)...")
+    if not os.path.exists(BASELINE_PATH):
+        print("\n[BASELINE] No baseline found → training 384 CatBoost models (GPU)...")
 
-    base_models = train_cb_models(X_train, y_train)
-    joblib.dump(base_models, f"{OUT_FOLDER}/seg{SEGMENT_ID}_cb_clean_models.pkl")
+        base_models = train_cb_models(X_train, y_train)
+        joblib.dump(base_models, BASELINE_PATH)
 
-    pred_clean = predict_cb_models(base_models, X_test)
-    np.save(f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_cb_clean_pred.npy", pred_clean)
+        pred_clean = predict_cb_models(base_models, X_test)
+        np.save(f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_cb_clean_pred.npy", pred_clean)
 
-    # Full-matrix metrics
-    p_macro, r_macro, f1_macro, acc_full = compute_full_matrix_metrics(y_test, pred_clean)
+        # Full-matrix metrics
+        p_macro, r_macro, f1_macro, acc_full = compute_full_matrix_metrics(y_test, pred_clean)
 
-    # Per-bin metrics
-    df_bins = compute_per_bin_metrics(y_test, pred_clean)
-    df_bins.to_csv(f"{DETAIL_FOLDER}/seg{SEGMENT_ID}_cb_clean_perbin_metrics.csv", index=False)
+        # Per-bin metrics
+        df_bins = compute_per_bin_metrics(y_test, pred_clean)
+        df_bins.to_csv(f"{DETAIL_FOLDER}/seg{SEGMENT_ID}_cb_clean_perbin_metrics.csv", index=False)
 
-    mean_acc = df_bins["accuracy"].mean()
-    mean_f1 = df_bins["f1"].mean()
+        mean_acc = df_bins["accuracy"].mean()
+        mean_f1 = df_bins["f1"].mean()
 
-    # Save main metrics
-    df_main = pd.DataFrame([{
-        "phase": "clean",
-        "attack": "none",
-        "pct": "0",
-        "ASR": 0.0,
-        "ASenR": 0.0,
-        "precision_macro": p_macro,
-        "recall_macro": r_macro,
-        "f1_macro": f1_macro,
-        "accuracy_full": acc_full,
-        "mean_perbin_accuracy": mean_acc,
-        "mean_perbin_f1": mean_f1
-    }])
+        # Save main metrics
+        df_main = pd.DataFrame([{
+            "phase": "clean",
+            "attack": "none",
+            "pct": "0",
+            "ASR": 0.0,
+            "ASenR": 0.0,
+            "precision_macro": p_macro,
+            "recall_macro": r_macro,
+            "f1_macro": f1_macro,
+            "accuracy_full": acc_full,
+            "mean_perbin_accuracy": mean_acc,
+            "mean_perbin_f1": mean_f1
+        }])
 
-    df_main.to_csv(f"{OUT_FOLDER}/seg{SEGMENT_ID}_cb_clean_metrics.csv", index=False)
+        df_main.to_csv(f"{OUT_FOLDER}/seg{SEGMENT_ID}_cb_clean_metrics.csv", index=False)
+
+    else:
+        print("\n[BASELINE] Found existing baseline → loading.")
+        base_models = joblib.load(BASELINE_PATH)
+        pred_clean = np.load(f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_cb_clean_pred.npy")
 
     # ========================================================
     # ROBUSTNESS (clean-trained → poisoned test)
     # ========================================================
-    print(f"\n[ROBUSTNESS] Evaluating clean-trained CatBoost → {ATTACK} {PCT}% (GPU)")
+    if not os.path.exists(ROBUST_PATH):
+        print(f"\n[ROBUSTNESS] No robustness results → evaluating clean-trained CatBoost → {ATTACK} {PCT}%")
 
-    Xp, yp = load_poisoned(ATTACK, PCT)
-    _, Xp_test, _, yp_test = train_test_split(Xp, yp, test_size=0.2, shuffle=True)
+        Xp, yp = load_poisoned(ATTACK, PCT)
+        _, Xp_test, _, yp_test = train_test_split(Xp, yp, test_size=0.2, shuffle=True)
 
-    np.save(f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_{ATTACK}_{PCT}_Xtest.npy", Xp_test)
-    np.save(f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_{ATTACK}_{PCT}_ytest.npy", yp_test)
+        np.save(f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_{ATTACK}_{PCT}_Xtest.npy", Xp_test)
+        np.save(f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_{ATTACK}_{PCT}_ytest.npy", yp_test)
 
-    pred_robust = predict_cb_models(base_models, Xp_test)
-    np.save(f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_cb_robust_{ATTACK}_{PCT}_pred.npy", pred_robust)
+        pred_robust = predict_cb_models(base_models, Xp_test)
+        np.save(f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_cb_robust_{ATTACK}_{PCT}_pred.npy", pred_robust)
 
-    # Compute ASR/ASenR
-    if ATTACK == "label_flip":
-        asr, flipped_mask = compute_asr_label_flip(pred_robust, y_clean=y_test, y_poison=yp_test)
-        asenr = compute_asenr(pred_clean, pred_robust, flipped_mask)
+        # Compute ASR/ASenR
+        if ATTACK == "label_flip":
+            asr, flipped_mask = compute_asr_label_flip(pred_robust, y_clean=y_test, y_poison=yp_test)
+            asenr = compute_asenr(pred_clean, pred_robust, flipped_mask)
+        else:
+            poisoned_mask = (Xp_test != X_test[:Xp_test.shape[0]])
+            asr = compute_asr_sensory(pred_clean, pred_robust, poisoned_mask)
+            asenr = compute_asenr(pred_clean, pred_robust, poisoned_mask)
+
+        # Full-matrix metrics
+        p_macro, r_macro, f1_macro, acc_full = compute_full_matrix_metrics(yp_test, pred_robust)
+
+        # Per-bin metrics
+        df_bins = compute_per_bin_metrics(yp_test, pred_robust)
+        df_bins.to_csv(
+            f"{DETAIL_FOLDER}/seg{SEGMENT_ID}_cb_robust_{ATTACK}_{PCT}_perbin_metrics.csv",
+            index=False
+        )
+
+        mean_acc = df_bins["accuracy"].mean()
+        mean_f1 = df_bins["f1"].mean()
+
+        # Save main metrics
+        df_main = pd.DataFrame([{
+            "phase": "robust",
+            "attack": ATTACK,
+            "pct": PCT,
+            "ASR": asr,
+            "ASenR": asenr,
+            "precision_macro": p_macro,
+            "recall_macro": r_macro,
+            "f1_macro": f1_macro,
+            "accuracy_full": acc_full,
+            "mean_perbin_accuracy": mean_acc,
+            "mean_perbin_f1": mean_f1
+        }])
+
+        df_main.to_csv(ROBUST_PATH, index=False)
+
     else:
-        poisoned_mask = (Xp_test != X_test[:Xp_test.shape[0]])
-        asr = compute_asr_sensory(pred_clean, pred_robust, poisoned_mask)
-        asenr = compute_asenr(pred_clean, pred_robust, poisoned_mask)
+        print(f"\n[ROBUSTNESS] Found existing robustness results → skipping.")
 
-    # Full-matrix metrics
-    p_macro, r_macro, f1_macro, acc_full = compute_full_matrix_metrics(yp_test, pred_robust)
+        Xp, yp = load_poisoned(ATTACK, PCT)
+        _, Xp_test, _, yp_test = train_test_split(Xp, yp, test_size=0.2, shuffle=True)
 
-    # Per-bin metrics
-    df_bins = compute_per_bin_metrics(yp_test, pred_robust)
-    df_bins.to_csv(
-        f"{DETAIL_FOLDER}/seg{SEGMENT_ID}_cb_robust_{ATTACK}_{PCT}_perbin_metrics.csv",
-        index=False
-    )
-
-    mean_acc = df_bins["accuracy"].mean()
-    mean_f1 = df_bins["f1"].mean()
-
-    # Save main metrics
-    df_main = pd.DataFrame([{
-        "phase": "robust",
-        "attack": ATTACK,
-        "pct": PCT,
-        "ASR": asr,
-        "ASenR": asenr,
-        "precision_macro": p_macro,
-        "recall_macro": r_macro,
-        "f1_macro": f1_macro,
-        "accuracy_full": acc_full,
-        "mean_perbin_accuracy": mean_acc,
-        "mean_perbin_f1": mean_f1
-    }])
-
-    df_main.to_csv(
-        f"{OUT_FOLDER}/seg{SEGMENT_ID}_cb_robust_{ATTACK}_{PCT}_metrics.csv",
-        index=False
-    )
+        pred_robust = np.load(
+            f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_cb_robust_{ATTACK}_{PCT}_pred.npy"
+        )
 
     # ========================================================
     # ADVERSARIAL TRAINING (poisoned → poisoned)
     # ========================================================
-    print(f"\n[ADV TRAIN] Training CatBoost on {ATTACK} {PCT}% poisoned data (GPU)...")
+    if not os.path.exists(ADV_PATH):
+        print(f"\n[ADV TRAIN] No adversarial model → training CatBoost on {ATTACK} {PCT}% poisoned data (GPU)...")
 
-    Xp_train, Xp_test_adv, yp_train, yp_test_adv = train_test_split(
-        Xp, yp, test_size=0.2, shuffle=True
-    )
-
-    adv_models = train_cb_models(Xp_train, yp_train)
-    joblib.dump(
-        adv_models,
-        f"{OUT_FOLDER}/seg{SEGMENT_ID}_cb_advtrain_{ATTACK}_{PCT}_models.pkl"
-    )
-
-    pred_adv = predict_cb_models(adv_models, Xp_test_adv)
-    np.save(
-        f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_cb_advtrain_{ATTACK}_{PCT}_pred.npy",
-        pred_adv
-    )
-
-    # Compute ASR/ASenR
-    if ATTACK == "label_flip":
-        asr_adv, flipped_mask_adv = compute_asr_label_flip(
-            pred_adv, y_clean=yp_test_adv, y_poison=yp_test_adv
+        Xp_train, Xp_test_adv, yp_train, yp_test_adv = train_test_split(
+            Xp, yp, test_size=0.2, shuffle=True
         )
-        asenr_adv = compute_asenr(pred_clean, pred_adv, flipped_mask_adv)
+
+        adv_models = train_cb_models(Xp_train, yp_train)
+        joblib.dump(adv_models, ADV_PATH)
+
+        pred_adv = predict_cb_models(adv_models, Xp_test_adv)
+        np.save(
+            f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_cb_advtrain_{ATTACK}_{PCT}_pred.npy",
+            pred_adv
+        )
+
+        # Compute ASR/ASenR
+        if ATTACK == "label_flip":
+            asr_adv, flipped_mask_adv = compute_asr_label_flip(
+                pred_adv, y_clean=yp_test_adv, y_poison=yp_test_adv
+            )
+            asenr_adv = compute_asenr(pred_clean, pred_adv, flipped_mask_adv)
+        else:
+            poisoned_mask_adv = (Xp_test_adv != X_test[:Xp_test_adv.shape[0]])
+            asr_adv = compute_asr_sensory(pred_clean, pred_adv, poisoned_mask_adv)
+            asenr_adv = compute_asenr(pred_clean, pred_adv, poisoned_mask_adv)
+
+        # Full-matrix metrics
+        p_macro, r_macro, f1_macro, acc_full = compute_full_matrix_metrics(yp_test_adv, pred_adv)
+
+        # Per-bin metrics
+        df_bins = compute_per_bin_metrics(yp_test_adv, pred_adv)
+        df_bins.to_csv(
+            f"{DETAIL_FOLDER}/seg{SEGMENT_ID}_cb_advtrain_{ATTACK}_{PCT}_perbin_metrics.csv",
+            index=False
+        )
+
+        mean_acc = df_bins["accuracy"].mean()
+        mean_f1 = df_bins["f1"].mean()
+
+        # Save main metrics
+        df_main = pd.DataFrame([{
+            "phase": "advtrain",
+            "attack": ATTACK,
+            "pct": PCT,
+            "ASR": asr_adv,
+            "ASenR": asenr_adv,
+            "precision_macro": p_macro,
+            "recall_macro": r_macro,
+            "f1_macro": f1_macro,
+            "accuracy_full": acc_full,
+            "mean_perbin_accuracy": mean_acc,
+            "mean_perbin_f1": mean_f1
+        }])
+
+        df_main.to_csv(
+            f"{OUT_FOLDER}/seg{SEGMENT_ID}_cb_advtrain_{ATTACK}_{PCT}_metrics.csv",
+            index=False
+        )
+
     else:
-        poisoned_mask_adv = (Xp_test_adv != X_test[:Xp_test_adv.shape[0]])
-        asr_adv = compute_asr_sensory(pred_clean, pred_adv, poisoned_mask_adv)
-        asenr_adv = compute_asenr(pred_clean, pred_adv, poisoned_mask_adv)
-
-    # Full-matrix metrics
-    p_macro, r_macro, f1_macro, acc_full = compute_full_matrix_metrics(yp_test_adv, pred_adv)
-
-    # Per-bin metrics
-    df_bins = compute_per_bin_metrics(yp_test_adv, pred_adv)
-    df_bins.to_csv(
-        f"{DETAIL_FOLDER}/seg{SEGMENT_ID}_cb_advtrain_{ATTACK}_{PCT}_perbin_metrics.csv",
-        index=False
-    )
-
-    mean_acc = df_bins["accuracy"].mean()
-    mean_f1 = df_bins["f1"].mean()
-
-    # Save main metrics
-    df_main = pd.DataFrame([{
-        "phase": "advtrain",
-        "attack": ATTACK,
-        "pct": PCT,
-        "ASR": asr_adv,
-        "ASenR": asenr_adv,
-        "precision_macro": p_macro,
-        "recall_macro": r_macro,
-        "f1_macro": f1_macro,
-        "accuracy_full": acc_full,
-        "mean_perbin_accuracy": mean_acc,
-        "mean_perbin_f1": mean_f1
-    }])
-
-    df_main.to_csv(
-        f"{OUT_FOLDER}/seg{SEGMENT_ID}_cb_advtrain_{ATTACK}_{PCT}_metrics.csv",
-        index=False
-    )
+        print(f"\n[ADV TRAIN] Found existing adversarial model → skipping.")
 
     print("\nCatBoost v2 (GPU) pipeline completed.\n")
