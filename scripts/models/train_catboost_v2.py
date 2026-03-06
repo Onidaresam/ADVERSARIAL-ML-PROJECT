@@ -140,8 +140,8 @@ def train_cb_models(X_train, y_train):
             models.append(("constant", int(unique_vals[0])))
         else:
             clf = CatBoostClassifier(
-                task_type="CPU",
-                #devices="0",
+                task_type="GPU",
+                devices="0",
                 loss_function="Logloss",
                 depth=6,
                 learning_rate=0.1,
