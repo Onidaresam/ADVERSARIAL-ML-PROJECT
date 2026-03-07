@@ -95,7 +95,7 @@ WARMUP_EPOCHS = 5
 # ============================================================
 def load_clean():
     df = pd.read_csv(clean_file)
-    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    numeric_cols = [c for c in numeric_cols if c != "label"]
     X = df[numeric_cols].astype(float).values
     y = pd.read_csv(label_file).values  # shape (N, 384)
     return X, y
