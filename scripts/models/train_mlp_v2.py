@@ -128,6 +128,7 @@ def load_poisoned(attack, pct):
         # Labels remain clean for sensory poisoning
         y_clean = pd.read_csv(label_file).values
 
+        print("DEBUG Xp shape after drop:", Xp.shape)
         return Xp, y_clean
 
     else:
