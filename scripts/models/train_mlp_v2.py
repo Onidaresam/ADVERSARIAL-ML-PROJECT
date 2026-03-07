@@ -50,8 +50,8 @@ SEG_FOLDER = f"{BASE}/segments_time/segment_{SEGMENT_ID}"
 clean_file = f"{SEG_FOLDER}/Cleaned_Data_{SEGMENT_ID}.csv"
 label_file = f"{SEG_FOLDER}/Label_Matrix_{SEGMENT_ID}.csv"
 
-SENSORY_FOLDER = f"{SEG_FOLDER}/sensory_poison"
-LABEL_FLIP_FOLDER = f"{SEG_FOLDER}/label_flips"
+SENSORY_FOLDER = f"{SEG_FOLDER}/sensory_poison_v2"
+LABEL_FLIP_FOLDER = f"{SEG_FOLDER}/label_flips_v2"
 
 OUT_FOLDER = f"{SEG_FOLDER}/models_reducedscope/mlp_v2"
 DETAIL_FOLDER = f"{SEG_FOLDER}/models_reducedscope/mlp_v2_details"
