@@ -114,7 +114,7 @@ def load_poisoned(attack, pct):
         return X_clean, y_poison
 
     elif attack == "sensory_add1":
-        # Convert pct to the filename format
+    # Convert pct to the filename format
         pct_str = str(pct).replace(".", "_")
 
         pattern = f"RSSI_continuous_p{pct_str}.csv"
@@ -123,8 +123,15 @@ def load_poisoned(attack, pct):
         if not os.path.exists(full_path):
             raise FileNotFoundError(f"Expected sensory file not found: {full_path}")
 
-        Xp = pd.read_csv(full_path).astype(float).values
+        # Load sensory poisoning file
+        dfp = pd.read_csv(full_path).astype(float)
+
+        # IMPORTANT: Drop the last column (this is an unwanted label column)
+        Xp = dfp.iloc[:, :-1].values
+
+        # Labels remain clean for sensory poisoning
         y_clean = pd.read_csv(label_file).values
+
         return Xp, y_clean
 
 
