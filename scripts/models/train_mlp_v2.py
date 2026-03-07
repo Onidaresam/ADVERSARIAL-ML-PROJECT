@@ -115,6 +115,9 @@ def load_poisoned(attack, pct):
     elif attack == "sensory_add1":
         # Convert pct to the filename format used in sensory_poison_v2
         pct_str = str(pct).replace(".", "_")
+        # Ensure integer percentages get a trailing '_0'
+        if "_" not in pct_str:
+            pct_str = pct_str + "_0"
         pattern = f"RSSI_continuous_p{pct_str}.csv"
         full_path = os.path.join(SENSORY_FOLDER, pattern)
         if not os.path.exists(full_path):
