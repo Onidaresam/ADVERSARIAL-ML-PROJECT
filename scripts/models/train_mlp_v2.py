@@ -114,7 +114,7 @@ def load_poisoned(attack, pct):
         return X_clean, y_poison
 
     elif attack == "sensory_add1":
-    # Convert pct to the filename format
+        # Convert pct to the filename format
         pct_str = str(pct).replace(".", "_")
 
         pattern = f"RSSI_continuous_p{pct_str}.csv"
@@ -133,6 +133,7 @@ def load_poisoned(attack, pct):
         y_clean = pd.read_csv(label_file).values
 
         return Xp, y_clean
+
 
 
     else:
