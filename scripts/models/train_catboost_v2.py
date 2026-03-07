@@ -20,7 +20,9 @@ from catboost import CatBoostClassifier
 parser = argparse.ArgumentParser()
 parser.add_argument("--pct", type=str, required=True)
 parser.add_argument("--attack", type=str, required=True, choices=["label_flip", "sensory_add1"])
+parser.add_argument("--mode", type=str, default="full", choices=["full", "adv_only"])
 args = parser.parse_args()
+
 
 PCT = args.pct
 ATTACK = args.attack
