@@ -114,17 +114,19 @@ def load_poisoned(attack, pct):
         return X_clean, y_poison
 
     elif attack == "sensory_add1":
-        pattern = f"RSSI_p{pct}"
-        candidates = [
-            f for f in os.listdir(SENSORY_FOLDER)
-            if f.startswith(pattern) and f.endswith(".csv")
-        ]
-        if len(candidates) == 0:
-            raise FileNotFoundError(f"No sensory poisoning file for pattern {pattern}")
-        sensory_file = candidates[0]
-        Xp = pd.read_csv(os.path.join(SENSORY_FOLDER, sensory_file)).astype(float).values
+        # Convert pct to the filename format
+        pct_str = str(pct).replace(".", "_")
+
+        pattern = f"RSSI_continuous_p{pct_str}.csv"
+
+        full_path = os.path.join(SENSORY_FOLDER, pattern)
+        if not os.path.exists(full_path):
+            raise FileNotFoundError(f"Expected sensory file not found: {full_path}")
+
+        Xp = pd.read_csv(full_path).astype(float).values
         y_clean = pd.read_csv(label_file).values
         return Xp, y_clean
+
 
     else:
         raise ValueError("Unsupported attack type")
