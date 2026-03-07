@@ -39,10 +39,10 @@ ATTACK = args.attack
 # ============================================================
 
 # LOCAL PATH
-BASE = "data"
+#BASE = "data"
 
 # GOOGLE DRIVE PATH (uncomment if needed)
-# BASE = "/content/drive/MyDrive/ADVERSARIAL_ML_PROJECT/ADVERSARIAL-ML-PROJECT"
+BASE = BASE = "/content/drive/MyDrive/ADVERSARIAL_ML_PROJECT/ADVERSARIAL-ML-PROJECT/data"
 
 SEGMENT_ID = "01"
 SEG_FOLDER = f"{BASE}/segments_time/segment_{SEGMENT_ID}"
