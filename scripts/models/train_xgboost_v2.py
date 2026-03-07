@@ -1,3 +1,6 @@
+import warnings
+warnings.filterwarnings("ignore")
+
 import os
 import argparse
 import time
@@ -20,8 +23,7 @@ import torch  # still imported, but no longer used for device detection
 #import warnings
 #warnings.filterwarnings("ignore", category=UserWarning)
 
-import warnings
-warnings.filterwarnings("ignore")
+
 
 # ============================================================
 # ARGUMENTS
