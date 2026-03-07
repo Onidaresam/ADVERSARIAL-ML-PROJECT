@@ -38,11 +38,8 @@ ATTACK = args.attack
 # CONFIG
 # ============================================================
 
-# LOCAL PATH
-#BASE = "data"
-
-# GOOGLE DRIVE PATH (uncomment if needed)
-BASE = BASE = "/content/drive/MyDrive/ADVERSARIAL_ML_PROJECT/ADVERSARIAL-ML-PROJECT/data"
+# GOOGLE DRIVE PATH
+BASE = "/content/drive/MyDrive/ADVERSARIAL_ML_PROJECT/ADVERSARIAL-ML-PROJECT/data"
 
 SEGMENT_ID = "01"
 SEG_FOLDER = f"{BASE}/segments_time/segment_{SEGMENT_ID}"
@@ -106,19 +103,18 @@ def load_clean():
 
 def load_poisoned(attack, pct):
     if attack == "label_flip":
+        # pct formatting: 0.5 -> 0_5, 1 -> 1, 5 -> 5, 10 -> 10, 20 -> 20
         pct_str = str(pct).replace(".", "_")
         y_poison = pd.read_csv(
-            f"{LABEL_FLIP_FOLDER}/Label_Matrix_{SEGMENT_ID}_flip_{pct_str}.csv"
+            f"{LABEL_FLIP_FOLDER}/Label_Matrix_{SEGMENT_ID}_flip_v2_{pct_str}.csv"
         ).values
         X_clean, _ = load_clean()
         return X_clean, y_poison
 
     elif attack == "sensory_add1":
-        # Convert pct to the filename format
+        # Convert pct to the filename format used in sensory_poison_v2
         pct_str = str(pct).replace(".", "_")
-
         pattern = f"RSSI_continuous_p{pct_str}.csv"
-
         full_path = os.path.join(SENSORY_FOLDER, pattern)
         if not os.path.exists(full_path):
             raise FileNotFoundError(f"Expected sensory file not found: {full_path}")
@@ -126,15 +122,13 @@ def load_poisoned(attack, pct):
         # Load sensory poisoning file
         dfp = pd.read_csv(full_path).astype(float)
 
-        # IMPORTANT: Drop the last column (this is an unwanted label column)
+        # IMPORTANT: Drop the last column (unwanted label column)
         Xp = dfp.iloc[:, :-1].values
 
         # Labels remain clean for sensory poisoning
         y_clean = pd.read_csv(label_file).values
 
         return Xp, y_clean
-
-
 
     else:
         raise ValueError("Unsupported attack type")
@@ -360,6 +354,7 @@ def compute_asr_label_flip(pred_poison, y_clean, y_poison):
 
 
 def compute_asr_sensory(pred_clean, pred_poison, poisoned_mask):
+    # For sensory, labels are not flipped; if mask is all-zero, ASR = 0
     denom = poisoned_mask.sum()
     if denom == 0:
         return 0.0
@@ -510,7 +505,8 @@ if __name__ == "__main__":
         asr, flipped_mask = compute_asr_label_flip(preds_robust, y_clean=y_test, y_poison=yp_test)
         asenr = compute_asenr(preds_clean, preds_robust, flipped_mask)
     else:
-        poisoned_mask = (Xp_test != X_test[:Xp_test.shape[0]])
+        # Sensory: labels are not flipped → no poisoned label positions
+        poisoned_mask = np.zeros_like(preds_clean, dtype=bool)
         asr = compute_asr_sensory(preds_clean, preds_robust, poisoned_mask)
         asenr = compute_asenr(preds_clean, preds_robust, poisoned_mask)
 
@@ -571,7 +567,7 @@ if __name__ == "__main__":
         asr_adv, flipped_mask_adv = compute_asr_label_flip(preds_adv, y_clean=yp_test_adv, y_poison=yp_test_adv)
         asenr_adv = compute_asenr(preds_clean, preds_adv, flipped_mask_adv)
     else:
-        poisoned_mask_adv = (Xp_test_adv != X_test[:Xp_test_adv.shape[0]])
+        poisoned_mask_adv = np.zeros_like(preds_clean, dtype=bool)
         asr_adv = compute_asr_sensory(preds_clean, preds_adv, poisoned_mask_adv)
         asenr_adv = compute_asenr(preds_clean, preds_adv, poisoned_mask_adv)
 
