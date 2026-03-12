@@ -7,7 +7,8 @@ import pandas as pd
 # ============================================================
 
 SEGMENT_ID = "01"
-BASE = "/content/drive/MyDrive/ADVERSARIAL_ML_PROJECT/data/segments_time"
+#BASE = "/content/drive/MyDrive/ADVERSARIAL_ML_PROJECT/data/segments_time"
+BASE = "/content/drive/MyDrive/ADVERSARIAL_ML_PROJECT/ADVERSARIAL-ML-PROJECT/data/segments_time"
 SEG_FOLDER = f"{BASE}/segment_{SEGMENT_ID}"
 
 clean_file = f"{SEG_FOLDER}/Cleaned_Data_{SEGMENT_ID}.csv"
