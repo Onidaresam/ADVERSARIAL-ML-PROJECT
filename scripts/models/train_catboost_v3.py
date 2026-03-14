@@ -23,11 +23,11 @@ parser.add_argument("--attack", type=str, required=True, choices=["label_flip", 
 parser.add_argument("--mode", type=str, default="full", choices=["full", "adv_only"])
 args = parser.parse_args()
 
-PCT = args.pct          # e.g. "0_5", "1", "5", "10", "20", "30", "50", "70"
+PCT = args.pct
 ATTACK = args.attack
 
 # ============================================================
-# PATH CONFIG (LOCAL + GOOGLE DRIVE)
+# PATH CONFIG
 # ============================================================
 SEGMENT_ID = "01"
 
@@ -47,9 +47,9 @@ label_file = f"{SEG_FOLDER}/Label_Matrix_{SEGMENT_ID}.csv"
 LABEL_FLIP_FOLDER = f"{SEG_FOLDER}/label_flips_v3"
 SENSORY_FOLDER = f"{SEG_FOLDER}/sensory_poison_v3"
 
-OUT_FOLDER = f"{SEG_FOLDER}/models_reducedscope/catboost_v2"
-TEST_SPLIT_FOLDER = f"{SEG_FOLDER}/models_reducedscope/testsplits_catboost_v2"
-DETAIL_FOLDER = f"{SEG_FOLDER}/models_reducedscope/catboost_v2_details"
+OUT_FOLDER = f"{SEG_FOLDER}/models_reducedscope/catboost_v3"
+TEST_SPLIT_FOLDER = f"{SEG_FOLDER}/models_reducedscope/testsplits_catboost_v3"
+DETAIL_FOLDER = f"{SEG_FOLDER}/models_reducedscope/catboost_v3_details"
 
 os.makedirs(OUT_FOLDER, exist_ok=True)
 os.makedirs(TEST_SPLIT_FOLDER, exist_ok=True)
@@ -64,7 +64,6 @@ def load_clean():
     X = df_features.values
     y = pd.read_csv(label_file).values
     return X, y
-
 
 def load_poisoned(attack, pct):
     if attack == "label_flip":
@@ -96,14 +95,12 @@ def compute_asr_label_flip(pred_poison, y_clean, y_poison):
     success = (pred_poison == y_poison) & flipped_mask
     return success.sum() / denom, flipped_mask
 
-
 def compute_asr_sensory(pred_clean, pred_poison, poisoned_mask):
     denom = poisoned_mask.sum()
     if denom == 0:
         return 0.0
     changed = (pred_clean != pred_poison) & poisoned_mask
     return changed.sum() / denom
-
 
 def compute_asenr(pred_clean, pred_poison, poisoned_mask):
     clean_positions = ~poisoned_mask
@@ -114,7 +111,7 @@ def compute_asenr(pred_clean, pred_poison, poisoned_mask):
     return changed.sum() / denom
 
 # ============================================================
-# TRAIN 384 CATBOOST MODELS WITH CONSTANT HANDLING
+# TRAIN 384 CATBOOST MODELS
 # ============================================================
 def train_cb_models(X_train, y_train, device_str):
     models = []
@@ -131,8 +128,7 @@ def train_cb_models(X_train, y_train, device_str):
                 depth=6,
                 learning_rate=0.1,
                 iterations=300,
-                verbose=False,
-                class_weights=None
+                verbose=False
             )
             clf.fit(X_train, yj)
             models.append(("model", clf))
@@ -140,7 +136,7 @@ def train_cb_models(X_train, y_train, device_str):
     return models
 
 # ============================================================
-# PREDICT USING 384 CATBOOST MODELS
+# PREDICT
 # ============================================================
 def predict_cb_models(models, X):
     N = X.shape[0]
@@ -164,7 +160,6 @@ def compute_full_matrix_metrics(y_true, y_pred):
     f1_macro = f1_score(y_true, y_pred, average="macro", zero_division=0)
     accuracy_full = accuracy_score(y_true, y_pred)
     return precision_macro, recall_macro, f1_macro, accuracy_full
-
 
 def compute_per_bin_metrics(y_true, y_pred):
     rows = []
@@ -190,7 +185,7 @@ if __name__ == "__main__":
     print(f"Attack: {ATTACK}, Pct: {PCT}")
     print(f"BASE: {BASE}\n")
 
-    # GPU detection (report + config)
+    # GPU detection
     try:
         test_model = CatBoostClassifier(
             iterations=1,
@@ -206,22 +201,21 @@ if __name__ == "__main__":
 
     print(f"[DEVICE] CatBoost will run on: {DEVICE_STR}")
 
-    # LOAD CLEAN DATA
     X_clean, y_clean = load_clean()
 
     X_train, X_test, y_train, y_test = train_test_split(
         X_clean, y_clean, test_size=0.2, shuffle=True
     )
 
-    np.save(f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_clean_Xtest.npy", X_test)
-    np.save(f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_clean_ytest.npy", y_test)
+    np.save(f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_cb_v3_clean_Xtest.npy", X_test)
+    np.save(f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_cb_v3_clean_ytest.npy", y_test)
 
-    BASELINE_MODEL_PATH = f"{OUT_FOLDER}/seg{SEGMENT_ID}_cb_clean_models.pkl"
-    BASELINE_PRED_PATH  = f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_cb_clean_pred.npy"
-    ROBUST_METRICS_PATH = f"{OUT_FOLDER}/seg{SEGMENT_ID}_cb_robust_{ATTACK}_{PCT}_metrics.csv"
-    ADV_MODEL_PATH      = f"{OUT_FOLDER}/seg{SEGMENT_ID}_cb_advtrain_{ATTACK}_{PCT}_models.pkl"
+    BASELINE_MODEL_PATH = f"{OUT_FOLDER}/seg{SEGMENT_ID}_cb_v3_clean_models.pkl"
+    BASELINE_PRED_PATH  = f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_cb_v3_clean_pred.npy"
+    ROBUST_METRICS_PATH = f"{OUT_FOLDER}/seg{SEGMENT_ID}_cb_v3_robust_{ATTACK}_{PCT}_metrics.csv"
+    ADV_MODEL_PATH      = f"{OUT_FOLDER}/seg{SEGMENT_ID}_cb_v3_advtrain_{ATTACK}_{PCT}_models.pkl"
 
-    # 1. BASELINE
+    # BASELINE
     print("\n[BASELINE] Training 384 CatBoost models...")
     base_models = train_cb_models(X_train, y_train, DEVICE_STR)
     joblib.dump(base_models, BASELINE_MODEL_PATH)
@@ -231,7 +225,7 @@ if __name__ == "__main__":
 
     p_macro, r_macro, f1_macro, acc_full = compute_full_matrix_metrics(y_test, pred_clean)
     df_bins = compute_per_bin_metrics(y_test, pred_clean)
-    df_bins.to_csv(f"{DETAIL_FOLDER}/seg{SEGMENT_ID}_cb_clean_perbin_metrics.csv", index=False)
+    df_bins.to_csv(f"{DETAIL_FOLDER}/seg{SEGMENT_ID}_cb_v3_clean_perbin_metrics.csv", index=False)
 
     mean_acc = df_bins["accuracy"].mean()
     mean_f1 = df_bins["f1"].mean()
@@ -251,19 +245,19 @@ if __name__ == "__main__":
         "device": DEVICE_STR
     }])
 
-    df_main_clean.to_csv(f"{OUT_FOLDER}/seg{SEGMENT_ID}_cb_clean_metrics.csv", index=False)
+    df_main_clean.to_csv(f"{OUT_FOLDER}/seg{SEGMENT_ID}_cb_v3_clean_metrics.csv", index=False)
 
-    # LOAD POISONED DATA
+    # LOAD POISONED
     Xp, yp = load_poisoned(ATTACK, PCT)
 
-    # 2. ROBUSTNESS
+    # ROBUSTNESS
     if args.mode == "full":
         print(f"\n[ROBUSTNESS] Evaluating CatBoost → {ATTACK} {PCT}")
 
         _, Xp_test, _, yp_test = train_test_split(Xp, yp, test_size=0.2, shuffle=True)
 
         pred_robust = predict_cb_models(base_models, Xp_test)
-        np.save(f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_cb_robust_{ATTACK}_{PCT}_pred.npy", pred_robust)
+        np.save(f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_cb_v3_robust_{ATTACK}_{PCT}_pred.npy", pred_robust)
 
         if ATTACK == "label_flip":
             asr, flipped_mask = compute_asr_label_flip(pred_robust, y_clean=y_test, y_poison=yp_test)
@@ -276,7 +270,7 @@ if __name__ == "__main__":
         p_macro, r_macro, f1_macro, acc_full = compute_full_matrix_metrics(yp_test, pred_robust)
         df_bins = compute_per_bin_metrics(yp_test, pred_robust)
         df_bins.to_csv(
-            f"{DETAIL_FOLDER}/seg{SEGMENT_ID}_cb_robust_{ATTACK}_{PCT}_perbin_metrics.csv",
+            f"{DETAIL_FOLDER}/seg{SEGMENT_ID}_cb_v3_robust_{ATTACK}_{PCT}_perbin_metrics.csv",
             index=False
         )
 
@@ -300,7 +294,7 @@ if __name__ == "__main__":
 
         df_main_robust.to_csv(ROBUST_METRICS_PATH, index=False)
 
-    # 3. ADVERSARIAL TRAINING
+    # ADV TRAIN
     if args.mode in ["full", "adv_only"]:
         print(f"\n[ADV TRAIN] Training CatBoost on {ATTACK} {PCT}% poisoned data...")
 
@@ -313,7 +307,7 @@ if __name__ == "__main__":
 
         pred_adv = predict_cb_models(adv_models, Xp_test_adv)
         np.save(
-            f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_cb_advtrain_{ATTACK}_{PCT}_pred.npy",
+            f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_cb_v3_advtrain_{ATTACK}_{PCT}_pred.npy",
             pred_adv
         )
 
@@ -330,7 +324,7 @@ if __name__ == "__main__":
         p_macro, r_macro, f1_macro, acc_full = compute_full_matrix_metrics(yp_test_adv, pred_adv)
         df_bins = compute_per_bin_metrics(yp_test_adv, pred_adv)
         df_bins.to_csv(
-            f"{DETAIL_FOLDER}/seg{SEGMENT_ID}_cb_advtrain_{ATTACK}_{PCT}_perbin_metrics.csv",
+            f"{DETAIL_FOLDER}/seg{SEGMENT_ID}_cb_v3_advtrain_{ATTACK}_{PCT}_perbin_metrics.csv",
             index=False
         )
 
@@ -353,7 +347,7 @@ if __name__ == "__main__":
         }])
 
         df_main_adv.to_csv(
-            f"{OUT_FOLDER}/seg{SEGMENT_ID}_cb_advtrain_{ATTACK}_{PCT}_metrics.csv",
+            f"{OUT_FOLDER}/seg{SEGMENT_ID}_cb_v3_advtrain_{ATTACK}_{PCT}_metrics.csv",
             index=False
         )
 
