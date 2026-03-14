@@ -58,9 +58,9 @@ label_file = f"{SEG_FOLDER}/Label_Matrix_{SEGMENT_ID}.csv"
 LABEL_FLIP_FOLDER = f"{SEG_FOLDER}/label_flips_v3"
 SENSORY_FOLDER = f"{SEG_FOLDER}/sensory_poison_v3"
 
-OUT_FOLDER = f"{SEG_FOLDER}/models_reducedscope/xgboost_v2"
-TEST_SPLIT_FOLDER = f"{SEG_FOLDER}/models_reducedscope/testsplits_xgboost_v2"
-DETAIL_FOLDER = f"{SEG_FOLDER}/models_reducedscope/xgboost_v2_details"
+OUT_FOLDER = f"{SEG_FOLDER}/models_reducedscope/xgboost_v3"
+TEST_SPLIT_FOLDER = f"{SEG_FOLDER}/models_reducedscope/testsplits_xgboost_v3"
+DETAIL_FOLDER = f"{SEG_FOLDER}/models_reducedscope/xgboost_v3_details"
 
 os.makedirs(OUT_FOLDER, exist_ok=True)
 os.makedirs(TEST_SPLIT_FOLDER, exist_ok=True)
@@ -262,13 +262,13 @@ if __name__ == "__main__":
         X_clean, y_clean, test_size=0.2, shuffle=True
     )
 
-    np.save(f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_clean_Xtest.npy", X_test)
-    np.save(f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_clean_ytest.npy", y_test)
+    np.save(f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_xgb_v3_clean_Xtest.npy", X_test)
+    np.save(f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_xgb_v3_clean_ytest.npy", y_test)
 
-    BASELINE_MODEL_PATH = f"{OUT_FOLDER}/seg{SEGMENT_ID}_xgb_clean_models.pkl"
-    BASELINE_PRED_PATH  = f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_xgb_clean_pred.npy"
-    ROBUST_METRICS_PATH = f"{OUT_FOLDER}/seg{SEGMENT_ID}_xgb_robust_{ATTACK}_{PCT}_metrics.csv"
-    ADV_MODEL_PATH      = f"{OUT_FOLDER}/seg{SEGMENT_ID}_xgb_advtrain_{ATTACK}_{PCT}_models.pkl"
+    BASELINE_MODEL_PATH = f"{OUT_FOLDER}/seg{SEGMENT_ID}_xgb_v3_clean_models.pkl"
+    BASELINE_PRED_PATH  = f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_xgb_v3_clean_pred.npy"
+    ROBUST_METRICS_PATH = f"{OUT_FOLDER}/seg{SEGMENT_ID}_xgb_v3_robust_{ATTACK}_{PCT}_metrics.csv"
+    ADV_MODEL_PATH      = f"{OUT_FOLDER}/seg{SEGMENT_ID}_xgb_v3_advtrain_{ATTACK}_{PCT}_models.pkl"
 
     # BASELINE
     print("\n[BASELINE] Training 384 XGBoost models on CLEAN data...")
@@ -282,7 +282,10 @@ if __name__ == "__main__":
 
     p_macro, r_macro, f1_macro, acc_full = compute_full_matrix_metrics(y_test, pred_clean)
     df_bins = compute_per_bin_metrics(y_test, pred_clean)
-    df_bins.to_csv(f"{DETAIL_FOLDER}/seg{SEGMENT_ID}_xgb_clean_perbin_metrics.csv", index=False)
+    df_bins.to_csv(
+        f"{DETAIL_FOLDER}/seg{SEGMENT_ID}_xgb_v3_clean_perbin_metrics.csv",
+        index=False
+    )
 
     mean_acc = df_bins["accuracy"].mean()
     mean_f1 = df_bins["f1"].mean()
@@ -307,7 +310,10 @@ if __name__ == "__main__":
         "device": DEVICE_STR
     }])
 
-    df_main_clean.to_csv(f"{OUT_FOLDER}/seg{SEGMENT_ID}_xgb_clean_metrics.csv", index=False)
+    df_main_clean.to_csv(
+        f"{OUT_FOLDER}/seg{SEGMENT_ID}_xgb_v3_clean_metrics.csv",
+        index=False
+    )
 
     # LOAD POISONED DATA
     Xp, yp = load_poisoned(ATTACK, PCT)
@@ -319,12 +325,18 @@ if __name__ == "__main__":
 
         _, Xp_test, _, yp_test = train_test_split(Xp, yp, test_size=0.2, shuffle=True)
 
-        np.save(f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_{ATTACK}_{PCT}_Xtest.npy", Xp_test)
-        np.save(f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_{ATTACK}_{PCT}_ytest.npy", yp_test)
+        np.save(
+            f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_xgb_v3_{ATTACK}_{PCT}_Xtest.npy",
+            Xp_test
+        )
+        np.save(
+            f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_xgb_v3_{ATTACK}_{PCT}_ytest.npy",
+            yp_test
+        )
 
         pred_robust = predict_xgb_models(base_models, Xp_test)
         np.save(
-            f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_xgb_robust_{ATTACK}_{PCT}_pred.npy",
+            f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_xgb_v3_robust_{ATTACK}_{PCT}_pred.npy",
             pred_robust
         )
 
@@ -341,7 +353,7 @@ if __name__ == "__main__":
         p_macro, r_macro, f1_macro, acc_full = compute_full_matrix_metrics(yp_test, pred_robust)
         df_bins = compute_per_bin_metrics(yp_test, pred_robust)
         df_bins.to_csv(
-            f"{DETAIL_FOLDER}/seg{SEGMENT_ID}_xgb_robust_{ATTACK}_{PCT}_perbin_metrics.csv",
+            f"{DETAIL_FOLDER}/seg{SEGMENT_ID}_xgb_v3_robust_{ATTACK}_{PCT}_perbin_metrics.csv",
             index=False
         )
 
@@ -384,7 +396,7 @@ if __name__ == "__main__":
 
         pred_adv = predict_xgb_models(adv_models, Xp_test_adv)
         np.save(
-            f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_xgb_advtrain_{ATTACK}_{PCT}_pred.npy",
+            f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_xgb_v3_advtrain_{ATTACK}_{PCT}_pred.npy",
             pred_adv
         )
 
@@ -401,7 +413,7 @@ if __name__ == "__main__":
         p_macro, r_macro, f1_macro, acc_full = compute_full_matrix_metrics(yp_test_adv, pred_adv)
         df_bins = compute_per_bin_metrics(yp_test_adv, pred_adv)
         df_bins.to_csv(
-            f"{DETAIL_FOLDER}/seg{SEGMENT_ID}_xgb_advtrain_{ATTACK}_{PCT}_perbin_metrics.csv",
+            f"{DETAIL_FOLDER}/seg{SEGMENT_ID}_xgb_v3_advtrain_{ATTACK}_{PCT}_perbin_metrics.csv",
             index=False
         )
 
@@ -429,7 +441,7 @@ if __name__ == "__main__":
         }])
 
         df_main_adv.to_csv(
-            f"{OUT_FOLDER}/seg{SEGMENT_ID}_xgb_advtrain_{ATTACK}_{PCT}_metrics.csv",
+            f"{OUT_FOLDER}/seg{SEGMENT_ID}_xgb_v3_advtrain_{ATTACK}_{PCT}_metrics.csv",
             index=False
         )
 
