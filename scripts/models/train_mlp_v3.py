@@ -55,9 +55,9 @@ label_file = f"{SEG_FOLDER}/Label_Matrix_{SEGMENT_ID}.csv"
 SENSORY_FOLDER = f"{SEG_FOLDER}/sensory_poison_v3"
 LABEL_FLIP_FOLDER = f"{SEG_FOLDER}/label_flips_v3"
 
-OUT_FOLDER = f"{SEG_FOLDER}/models_reducedscope/mlp_v2"
-DETAIL_FOLDER = f"{SEG_FOLDER}/models_reducedscope/mlp_v2_details"
-TEST_SPLIT_FOLDER = f"{SEG_FOLDER}/models_reducedscope/testsplits_mlp_v2"
+OUT_FOLDER = f"{SEG_FOLDER}/models_reducedscope/mlp_v3"
+DETAIL_FOLDER = f"{SEG_FOLDER}/models_reducedscope/mlp_v3_details"
+TEST_SPLIT_FOLDER = f"{SEG_FOLDER}/models_reducedscope/testsplits_mlp_v3"
 
 os.makedirs(OUT_FOLDER, exist_ok=True)
 os.makedirs(DETAIL_FOLDER, exist_ok=True)
