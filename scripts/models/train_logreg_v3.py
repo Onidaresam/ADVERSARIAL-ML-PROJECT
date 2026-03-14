@@ -193,21 +193,25 @@ if __name__ == "__main__":
         X_clean, y_clean, test_size=0.2, shuffle=True
     )
 
-    np.save(f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_clean_Xtest.npy", X_test)
-    np.save(f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_clean_ytest.npy", y_test)
+    # include version in test split filenames
+    np.save(f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_lr_v3_clean_Xtest.npy", X_test)
+    np.save(f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_lr_v3_clean_ytest.npy", y_test)
 
     # BASELINE
     print("\n[BASELINE] Training 384 LR models on CLEAN data...")
 
     base_models = train_lr_models(X_train, y_train)
-    joblib.dump(base_models, f"{OUT_FOLDER}/seg{SEGMENT_ID}_lr_clean_models.pkl")
+    joblib.dump(base_models, f"{OUT_FOLDER}/seg{SEGMENT_ID}_lr_v3_clean_models.pkl")
 
     pred_clean = predict_lr_models(base_models, X_test)
-    np.save(f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_lr_clean_pred.npy", pred_clean)
+    np.save(f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_lr_v3_clean_pred.npy", pred_clean)
 
     p_macro, r_macro, f1_macro, acc_full = compute_full_matrix_metrics(y_test, pred_clean)
     df_bins = compute_per_bin_metrics(y_test, pred_clean)
-    df_bins.to_csv(f"{DETAIL_FOLDER}/seg{SEGMENT_ID}_lr_clean_perbin_metrics.csv", index=False)
+    df_bins.to_csv(
+        f"{DETAIL_FOLDER}/seg{SEGMENT_ID}_lr_v3_clean_perbin_metrics.csv",
+        index=False
+    )
 
     mean_acc = df_bins["accuracy"].mean()
     mean_f1 = df_bins["f1"].mean()
@@ -226,7 +230,10 @@ if __name__ == "__main__":
         "mean_perbin_f1": mean_f1
     }])
 
-    df_main.to_csv(f"{OUT_FOLDER}/seg{SEGMENT_ID}_lr_clean_metrics.csv", index=False)
+    df_main.to_csv(
+        f"{OUT_FOLDER}/seg{SEGMENT_ID}_lr_v3_clean_metrics.csv",
+        index=False
+    )
 
     # ROBUSTNESS
     print(f"\n[ROBUSTNESS] Evaluating clean-trained LR → {ATTACK} {PCT}%")
@@ -234,11 +241,20 @@ if __name__ == "__main__":
     Xp, yp = load_poisoned(ATTACK, PCT)
     _, Xp_test, _, yp_test = train_test_split(Xp, yp, test_size=0.2, shuffle=True)
 
-    np.save(f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_{ATTACK}_{PCT}_Xtest.npy", Xp_test)
-    np.save(f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_{ATTACK}_{PCT}_ytest.npy", yp_test)
+    np.save(
+        f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_lr_v3_{ATTACK}_{PCT}_Xtest.npy",
+        Xp_test
+    )
+    np.save(
+        f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_lr_v3_{ATTACK}_{PCT}_ytest.npy",
+        yp_test
+    )
 
     pred_robust = predict_lr_models(base_models, Xp_test)
-    np.save(f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_lr_robust_{ATTACK}_{PCT}_pred.npy", pred_robust)
+    np.save(
+        f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_lr_v3_robust_{ATTACK}_{PCT}_pred.npy",
+        pred_robust
+    )
 
     if ATTACK == "label_flip":
         asr, flipped_mask = compute_asr_label_flip(pred_robust, y_clean=y_test, y_poison=yp_test)
@@ -251,7 +267,7 @@ if __name__ == "__main__":
     p_macro, r_macro, f1_macro, acc_full = compute_full_matrix_metrics(yp_test, pred_robust)
     df_bins = compute_per_bin_metrics(yp_test, pred_robust)
     df_bins.to_csv(
-        f"{DETAIL_FOLDER}/seg{SEGMENT_ID}_lr_robust_{ATTACK}_{PCT}_perbin_metrics.csv",
+        f"{DETAIL_FOLDER}/seg{SEGMENT_ID}_lr_v3_robust_{ATTACK}_{PCT}_perbin_metrics.csv",
         index=False
     )
 
@@ -273,7 +289,7 @@ if __name__ == "__main__":
     }])
 
     df_main.to_csv(
-        f"{OUT_FOLDER}/seg{SEGMENT_ID}_lr_robust_{ATTACK}_{PCT}_metrics.csv",
+        f"{OUT_FOLDER}/seg{SEGMENT_ID}_lr_v3_robust_{ATTACK}_{PCT}_metrics.csv",
         index=False
     )
 
@@ -287,12 +303,12 @@ if __name__ == "__main__":
     adv_models = train_lr_models(Xp_train, yp_train)
     joblib.dump(
         adv_models,
-        f"{OUT_FOLDER}/seg{SEGMENT_ID}_lr_advtrain_{ATTACK}_{PCT}_models.pkl"
+        f"{OUT_FOLDER}/seg{SEGMENT_ID}_lr_v3_advtrain_{ATTACK}_{PCT}_models.pkl"
     )
 
     pred_adv = predict_lr_models(adv_models, Xp_test_adv)
     np.save(
-        f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_lr_advtrain_{ATTACK}_{PCT}_pred.npy",
+        f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_lr_v3_advtrain_{ATTACK}_{PCT}_pred.npy",
         pred_adv
     )
 
@@ -309,7 +325,7 @@ if __name__ == "__main__":
     p_macro, r_macro, f1_macro, acc_full = compute_full_matrix_metrics(yp_test_adv, pred_adv)
     df_bins = compute_per_bin_metrics(yp_test_adv, pred_adv)
     df_bins.to_csv(
-        f"{DETAIL_FOLDER}/seg{SEGMENT_ID}_lr_advtrain_{ATTACK}_{PCT}_perbin_metrics.csv",
+        f"{DETAIL_FOLDER}/seg{SEGMENT_ID}_lr_v3_advtrain_{ATTACK}_{PCT}_perbin_metrics.csv",
         index=False
     )
 
@@ -331,7 +347,7 @@ if __name__ == "__main__":
     }])
 
     df_main.to_csv(
-        f"{OUT_FOLDER}/seg{SEGMENT_ID}_lr_advtrain_{ATTACK}_{PCT}_metrics.csv",
+        f"{OUT_FOLDER}/seg{SEGMENT_ID}_lr_v3_advtrain_{ATTACK}_{PCT}_metrics.csv",
         index=False
     )
 
