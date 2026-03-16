@@ -271,7 +271,7 @@ if __name__ == "__main__":
     ADV_MODEL_PATH      = f"{OUT_FOLDER}/seg{SEGMENT_ID}_xgb_v3_advtrain_{ATTACK}_{PCT}_models.pkl"
 
     # BASELINE
-if args.mode == "full":
+#if args.mode == "full":
     print("\n[BASELINE] Training 384 XGBoost models on CLEAN data...")
     baseline_start = time.time()
 
@@ -315,10 +315,10 @@ if args.mode == "full":
         f"{OUT_FOLDER}/seg{SEGMENT_ID}_xgb_v3_clean_metrics.csv",
         index=False
     )
-else:
-    print("\n[BASELINE] Skipped (adv_only mode). Loading existing baseline...")
-    base_models = joblib.load(BASELINE_MODEL_PATH)
-    pred_clean = np.load(BASELINE_PRED_PATH)
+#else:
+    #print("\n[BASELINE] Skipped (adv_only mode). Loading existing baseline...")
+    #base_models = joblib.load(BASELINE_MODEL_PATH)
+    #pred_clean = np.load(BASELINE_PRED_PATH)
 
     # LOAD POISONED DATA
     Xp, yp = load_poisoned(ATTACK, PCT)
