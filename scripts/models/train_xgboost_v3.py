@@ -271,6 +271,7 @@ if __name__ == "__main__":
     ADV_MODEL_PATH      = f"{OUT_FOLDER}/seg{SEGMENT_ID}_xgb_v3_advtrain_{ATTACK}_{PCT}_models.pkl"
 
     # BASELINE
+if args.mode == "full":
     print("\n[BASELINE] Training 384 XGBoost models on CLEAN data...")
     baseline_start = time.time()
 
