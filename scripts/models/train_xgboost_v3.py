@@ -271,54 +271,54 @@ if __name__ == "__main__":
     ADV_MODEL_PATH      = f"{OUT_FOLDER}/seg{SEGMENT_ID}_xgb_v3_advtrain_{ATTACK}_{PCT}_models.pkl"
 
     # BASELINE
-#if args.mode == "full":
-    print("\n[BASELINE] Training 384 XGBoost models on CLEAN data...")
-    baseline_start = time.time()
+    if args.mode == "full":
+        print("\n[BASELINE] Training 384 XGBoost models on CLEAN data...")
+        baseline_start = time.time()
 
-    base_models = train_xgb_models(X_train, y_train)
-    joblib.dump(base_models, BASELINE_MODEL_PATH)
+        base_models = train_xgb_models(X_train, y_train)
+        joblib.dump(base_models, BASELINE_MODEL_PATH)
 
-    pred_clean = predict_xgb_models(base_models, X_test)
-    np.save(BASELINE_PRED_PATH, pred_clean)
+        pred_clean = predict_xgb_models(base_models, X_test)
+        np.save(BASELINE_PRED_PATH, pred_clean)
 
-    p_macro, r_macro, f1_macro, acc_full = compute_full_matrix_metrics(y_test, pred_clean)
-    df_bins = compute_per_bin_metrics(y_test, pred_clean)
-    df_bins.to_csv(
+        p_macro, r_macro, f1_macro, acc_full = compute_full_matrix_metrics(y_test, pred_clean)
+        df_bins = compute_per_bin_metrics(y_test, pred_clean)
+        df_bins.to_csv(
         f"{DETAIL_FOLDER}/seg{SEGMENT_ID}_xgb_v3_clean_perbin_metrics.csv",
         index=False
-    )
+        )
 
-    mean_acc = df_bins["accuracy"].mean()
-    mean_f1 = df_bins["f1"].mean()
+        mean_acc = df_bins["accuracy"].mean()
+        mean_f1 = df_bins["f1"].mean()
 
-    baseline_end = time.time()
-    baseline_runtime = baseline_end - baseline_start
-    print(f"[BASELINE] Runtime: {baseline_runtime:.2f} seconds")
+        baseline_end = time.time()
+        baseline_runtime = baseline_end - baseline_start
+        print(f"[BASELINE] Runtime: {baseline_runtime:.2f} seconds")
 
-    df_main_clean = pd.DataFrame([{
-        "phase": "clean",
-        "attack": "none",
-        "pct": "0",
-        "ASR": 0.0,
-        "ASenR": 0.0,
-        "precision_macro": p_macro,
-        "recall_macro": r_macro,
-        "f1_macro": f1_macro,
-        "accuracy_full": acc_full,
-        "mean_perbin_accuracy": mean_acc,
-        "mean_perbin_f1": mean_f1,
-        "runtime_seconds": baseline_runtime,
-        "device": DEVICE_STR
-    }])
+        df_main_clean = pd.DataFrame([{
+            "phase": "clean",
+            "attack": "none",
+            "pct": "0",
+            "ASR": 0.0,
+            "ASenR": 0.0,
+            "precision_macro": p_macro,
+            "recall_macro": r_macro,
+            "f1_macro": f1_macro,
+            "accuracy_full": acc_full,
+            "mean_perbin_accuracy": mean_acc,
+            "mean_perbin_f1": mean_f1,
+            "runtime_seconds": baseline_runtime,
+            "device": DEVICE_STR
+        }])
 
-    df_main_clean.to_csv(
-        f"{OUT_FOLDER}/seg{SEGMENT_ID}_xgb_v3_clean_metrics.csv",
-        index=False
-    )
-#else:
-    #print("\n[BASELINE] Skipped (adv_only mode). Loading existing baseline...")
-    #base_models = joblib.load(BASELINE_MODEL_PATH)
-    #pred_clean = np.load(BASELINE_PRED_PATH)
+        df_main_clean.to_csv(
+            f"{OUT_FOLDER}/seg{SEGMENT_ID}_xgb_v3_clean_metrics.csv",
+            index=False
+        )
+    else:
+        print("\n[BASELINE] Skipped (adv_only mode). Loading existing baseline...")
+        base_models = joblib.load(BASELINE_MODEL_PATH)
+        pred_clean = np.load(BASELINE_PRED_PATH)
 
     # LOAD POISONED DATA
     Xp, yp = load_poisoned(ATTACK, PCT)
