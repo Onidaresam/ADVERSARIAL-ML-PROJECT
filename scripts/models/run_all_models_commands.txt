@@ -1,0 +1,71 @@
+XGBOOST — LABEL FLIP
+
+python scripts\models\train_xgboost_segment_optimized.py --pct 0_5 --attack label_flip
+python scripts\models\train_xgboost_segment_optimized.py --pct 1 --attack label_flip
+python scripts\models\train_xgboost_segment_optimized.py --pct 5 --attack label_flip
+python scripts\models\train_xgboost_segment_optimized.py --pct 10 --attack label_flip
+python scripts\models\train_xgboost_segment_optimized.py --pct 20 --attack label_flip
+
+XGBOOST — SENSORY ADD‑1
+
+python scripts\models\train_xgboost_segment_optimized.py --pct 0_5 --attack sensory_add1
+python scripts\models\train_xgboost_segment_optimized.py --pct 1 --attack sensory_add1
+python scripts\models\train_xgboost_segment_optimized.py --pct 5 --attack sensory_add1
+python scripts\models\train_xgboost_segment_optimized.py --pct 10 --attack sensory_add1
+python scripts\models\train_xgboost_segment_optimized.py --pct 20 --attack sensory_add1
+
+
+CATBOOST (212‑MODEL VERSION)
+LABEL FLIP
+
+python scripts\models\train_catboost_segment_optimized.py --pct 0_5 --attack label_flip
+python scripts\models\train_catboost_segment_optimized.py --pct 1 --attack label_flip
+python scripts\models\train_catboost_segment_optimized.py --pct 5 --attack label_flip
+python scripts\models\train_catboost_segment_optimized.py --pct 10 --attack label_flip
+python scripts\models\train_catboost_segment_optimized.py --pct 20 --attack label_flip
+
+
+SENSORY ADD‑1
+
+python scripts\models\train_catboost_segment_optimized.py --pct 0_5 --attack sensory_add1
+python scripts\models\train_catboost_segment_optimized.py --pct 1 --attack sensory_add1
+python scripts\models\train_catboost_segment_optimized.py --pct 5 --attack sensory_add1
+python scripts\models\train_catboost_segment_optimized.py --pct 10 --attack sensory_add1
+python scripts\models\train_catboost_segment_optimized.py --pct 20 --attack sensory_add1
+
+
+MLP
+LABEL FLIP
+
+python scripts\models\train_mlp_segment_optimized.py --pct 0_5 --attack label_flip
+python scripts\models\train_mlp_segment_optimized.py --pct 1 --attack label_flip
+python scripts\models\train_mlp_segment_optimized.py --pct 5 --attack label_flip
+python scripts\models\train_mlp_segment_optimized.py --pct 10 --attack label_flip
+python scripts\models\train_mlp_segment_optimized.py --pct 20 --attack label_flip
+
+
+SENSORY ADD‑1
+
+python scripts\models\train_mlp_segment_optimized.py --pct 0_5 --attack sensory_add1
+python scripts\models\train_mlp_segment_optimized.py --pct 1 --attack sensory_add1
+python scripts\models\train_mlp_segment_optimized.py --pct 5 --attack sensory_add1
+python scripts\models\train_mlp_segment_optimized.py --pct 10 --attack sensory_add1
+python scripts\models\train_mlp_segment_optimized.py --pct 20 --attack sensory_add1
+
+
+LOGISTIC REGRESSION
+LABEL FLIP
+
+python scripts\models\train_logreg_segment_optimized.py --pct 0_5 --attack label_flip
+python scripts\models\train_logreg_segment_optimized.py --pct 1 --attack label_flip
+python scripts\models\train_logreg_segment_optimized.py --pct 5 --attack label_flip
+python scripts\models\train_logreg_segment_optimized.py --pct 10 --attack label_flip
+python scripts\models\train_logreg_segment_optimized.py --pct 20 --attack label_flip
+
+SENSORY ADD‑1
+
+python scripts\models\train_logreg_segment_optimized.py --pct 0_5 --attack sensory_add1
+python scripts\models\train_logreg_segment_optimized.py --pct 1 --attack sensory_add1
+python scripts\models\train_logreg_segment_optimized.py --pct 5 --attack sensory_add1
+python scripts\models\train_logreg_segment_optimized.py --pct 10 --attack sensory_add1
+python scripts\models\train_logreg_segment_optimized.py --pct 20 --attack sensory_add1

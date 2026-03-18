@@ -1,0 +1,125 @@
+import os
+import numpy as np
+import pandas as pd
+
+# ============================
+# CONFIG
+# ============================
+SEGMENT_ID = "01"
+BASE = "data"
+SEG_FOLDER = f"{BASE}/segments_time/segment_{SEGMENT_ID}"
+
+# Per-model testsplit folders
+TEST_SPLIT_FOLDERS = {
+    "lr":  f"{SEG_FOLDER}/models_reducedscope/testsplits_logreg_research",
+    "mlp": f"{SEG_FOLDER}/models_reducedscope/testsplits_cb_focal_research",
+    "xgb": f"{SEG_FOLDER}/models_reducedscope/testsplits_optimized",
+    "cat": f"{SEG_FOLDER}/models_reducedscope/testsplits_optimized",
+}
+
+# All ytest_full files live here
+ATTACK_FOLDER = f"{SEG_FOLDER}/models_reducedscope/testsplits_optimized"
+
+models = ["lr", "mlp", "xgb", "cat"]
+attacks = ["label_flip", "sensory_add1"]
+pcts = ["0_5", "1", "5", "10", "20"]
+phases = ["robust", "advtrain"]
+
+
+# ============================
+# ASR / ASenR COMPUTATION
+# ============================
+def compute_asr_asenr_for_files(model, phase, attack, pct,
+                                full_pred_path, ytest_path, poison_flags_path,
+                                pred_clean=None, y_clean=None):
+
+    full_pred = np.load(full_pred_path)
+    y_true = np.load(ytest_path)
+    poison_flags = np.load(poison_flags_path)
+
+    # Clean baseline predictions must be passed in
+    if pred_clean is None or y_clean is None:
+        raise ValueError("pred_clean and y_clean must be provided.")
+
+    # ========== ASR ==========
+    if attack == "label_flip":
+        flipped = (y_clean != y_true)
+        if flipped.sum() == 0:
+            asr = 0.0
+        else:
+            success = (full_pred == y_true) & flipped
+            asr = success.sum() / flipped.sum()
+        poisoned_mask = flipped
+
+    else:  # sensory
+        poisoned_mask = poison_flags.astype(bool)
+        if poisoned_mask.sum() == 0:
+            asr = 0.0
+        else:
+            changed = (pred_clean != full_pred) & poisoned_mask
+            asr = changed.sum() / poisoned_mask.sum()
+
+    # ========== ASenR ==========
+    clean_positions = ~poisoned_mask
+    if clean_positions.sum() == 0:
+        asenr = 0.0
+    else:
+        changed_clean = (pred_clean != full_pred) & clean_positions
+        asenr = changed_clean.sum() / clean_positions.sum()
+
+    return {
+        "model": model,
+        "phase": phase,
+        "attack": attack,
+        "pct": pct,
+        "ASR": asr,
+        "ASenR": asenr,
+    }
+
+
+# ============================
+# MAIN SCRIPT
+# ============================
+results = []
+
+for model in models:
+    model_folder = TEST_SPLIT_FOLDERS[model]
+
+    # Load clean baseline once per model
+    clean_prefix = f"seg{SEGMENT_ID}_{model}_clean"
+    pred_clean = np.load(os.path.join(model_folder, f"{clean_prefix}_full_pred.npy"))
+    y_clean = np.load(os.path.join(model_folder, f"{clean_prefix}_ytest_full.npy"))
+
+    for attack in attacks:
+        for pct in pcts:
+            for phase in phases:
+
+                prefix = f"seg{SEGMENT_ID}_{model}_{phase}_{attack}_{pct}"
+
+                full_pred_path = os.path.join(model_folder, f"{prefix}_full_pred.npy")
+                poison_flags_path = os.path.join(model_folder, f"{prefix}_poison_flags.npy")
+
+                # ytest_full always comes from attack folder
+                ytest_path = os.path.join(
+                    ATTACK_FOLDER,
+                    f"seg{SEGMENT_ID}_{attack}_{pct}_ytest_full.npy"
+                )
+
+                if not (os.path.exists(full_pred_path)
+                        and os.path.exists(ytest_path)
+                        and os.path.exists(poison_flags_path)):
+                    print(f"[SKIP] Missing files for {model} {phase} {attack} {pct}")
+                    continue
+
+                res = compute_asr_asenr_for_files(
+                    model, phase, attack, pct,
+                    full_pred_path, ytest_path, poison_flags_path,
+                    pred_clean=pred_clean, y_clean=y_clean
+                )
+                results.append(res)
+
+# Save output
+df = pd.DataFrame(results)
+out_path = os.path.join(SEG_FOLDER, "models_reducedscope", f"seg{SEGMENT_ID}_asr_asenr_all_models.csv")
+df.to_csv(out_path, index=False)
+print("Saved:", out_path)

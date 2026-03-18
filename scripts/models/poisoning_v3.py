@@ -1,0 +1,110 @@
+import os
+import numpy as np
+import pandas as pd
+
+# ============================================================
+# CONFIG — V3
+# ============================================================
+
+SEGMENT_ID = "01"
+BASE = "/content/drive/MyDrive/ADVERSARIAL_ML_PROJECT/data/segments_time"
+#BASE = "/content/drive/MyDrive/ADVERSARIAL_ML_PROJECT/ADVERSARIAL-ML-PROJECT/data/segments_time"
+SEG_FOLDER = f"{BASE}/segment_{SEGMENT_ID}"
+
+clean_file = f"{SEG_FOLDER}/Cleaned_Data_{SEGMENT_ID}.csv"
+label_file = f"{SEG_FOLDER}/Label_Matrix_{SEGMENT_ID}.csv"
+
+# NEW V3 OUTPUT FOLDERS
+OUT_LABEL = f"{SEG_FOLDER}/label_flips_v3"
+OUT_SENSORY = f"{SEG_FOLDER}/sensory_poison_v3"
+
+os.makedirs(OUT_LABEL, exist_ok=True)
+os.makedirs(OUT_SENSORY, exist_ok=True)
+
+# ============================================================
+# POISONING PERCENTAGES — V3
+# ============================================================
+
+# Label flip uses TRUE percentages
+LABEL_PERCENTS = [0.5, 1, 5, 10, 20, 30, 50, 70]
+
+# Sensory poisoning uses FRACTIONS of total entries
+POISON_PCTS = [p / 100 for p in LABEL_PERCENTS]   # convert to fractions
+
+
+# ============================================================
+# 1. LABEL FLIP V3
+# ============================================================
+
+def flip_labels_random(df, percent):
+    df = df.copy()
+    n = len(df)
+    k = int(n * (percent / 100))
+
+    idx = np.random.choice(n, k, replace=False)
+    random_flips = np.random.randint(0, 2, size=k)
+
+    df.iloc[idx] = np.abs(df.iloc[idx] - random_flips.reshape(-1, 1))
+    return df
+
+
+def generate_label_flips_v3():
+    df_label = pd.read_csv(label_file)
+
+    for p in LABEL_PERCENTS:
+        flipped = flip_labels_random(df_label, p)
+        pct_str = str(p).replace('.', '_')
+        out = f"{OUT_LABEL}/Label_Matrix_{SEGMENT_ID}_flip_v3_{pct_str}.csv"
+        flipped.to_csv(out, index=False)
+        print(f"[Label Flip v3] {p}% → {out}")
+
+
+# ============================================================
+# 2. SENSORY POISONING V3
+# ============================================================
+
+def poison_rssi_continuous(rssi, poison_frac):
+    rssi = rssi.copy()
+    n_rows, n_cols = rssi.shape
+    total = n_rows * n_cols
+
+    k = int(poison_frac * total)
+
+    flat_idx = np.random.choice(total, size=k, replace=False)
+    row_idx = flat_idx // n_cols
+    col_idx = flat_idx % n_cols
+
+    # NEW RANGE: -5 to +5
+    deltas = np.random.uniform(-5.0, 5.0, size=k)
+
+    rssi[row_idx, col_idx] += deltas
+    return rssi
+
+
+def generate_sensory_poison_v3():
+    df = pd.read_csv(clean_file)
+
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    rssi = df[numeric_cols].astype(float).values
+
+    for p_frac, p_percent in zip(POISON_PCTS, LABEL_PERCENTS):
+        pct_str = str(p_percent).replace('.', '_')
+
+        poisoned = poison_rssi_continuous(rssi, p_frac)
+        out_name = f"{OUT_SENSORY}/RSSI_continuous_p{pct_str}_v3.csv"
+        pd.DataFrame(poisoned).to_csv(out_name, index=False)
+
+        print(f"[Sensory v3] {p_percent}% → {out_name}")
+
+
+# ============================================================
+# MAIN
+# ============================================================
+
+if __name__ == "__main__":
+    print(f"Running NEW V3 attacks for segment {SEGMENT_ID}")
+
+    generate_label_flips_v3()
+    generate_sensory_poison_v3()
+
+    print("All V3 attacks completed.")
