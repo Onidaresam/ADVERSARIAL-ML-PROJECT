@@ -346,9 +346,11 @@ if __name__ == "__main__":
     Xp_train, Xp_test = Xp[idx_train], Xp[idx_test]
     yp_train, yp_test = yp[idx_train], yp[idx_test]
 
-    # ---- Baseline (clean) -------------------------------------------------
+        # ---- Baseline (clean) -------------------------------------------------
     BASELINE_MODEL_PATH = f"{OUT_FOLDER}/seg{SEGMENT_ID}_xgb_v3_clean_models.pkl"
     BASELINE_PRED_PATH  = f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_xgb_v3_clean_pred.npy"
+    ROBUST_METRICS_PATH = f"{OUT_FOLDER}/seg{SEGMENT_ID}_xgb_v3_robust_{ATTACK}_{PCT}_metrics.csv"
+    ADV_MODEL_PATH      = f"{OUT_FOLDER}/seg{SEGMENT_ID}_xgb_v3_advtrain_{ATTACK}_{PCT}_models.pkl"
 
     base_models = None
     pred_clean  = None
@@ -363,8 +365,174 @@ if __name__ == "__main__":
 
         p_macro, r_macro, f1_macro, acc_full = compute_full_matrix_metrics(y_test, pred_clean)
         df_bins = compute_per_bin_metrics(y_test, pred_clean)
-        df_bins.to_csv(f"{DETAIL_FOLDER}/seg{SEGMENT_ID}_xgb_v3_clean_perbin_metrics.csv", index=False)
+        df_bins.to_csv(
+            f"{DETAIL_FOLDER}/seg{SEGMENT_ID}_xgb_v3_clean_perbin_metrics.csv",
+            index=False
+        )
 
-        mean_acc, mean_f1 = df_bins["accuracy"].mean(), df_bins["f1"].mean()
+        mean_acc = df_bins["accuracy"].mean()
+        mean_f1 = df_bins["f1"].mean()
+
         t1 = time.time()
-        pd
+        baseline_runtime = t1 - t0
+        print(f"[BASELINE] Runtime: {baseline_runtime:.2f} seconds")
+
+        df_main_clean = pd.DataFrame([{
+            "phase": "clean",
+            "attack": "none",
+            "pct": "0",
+            "ASR": 0.0,
+            "ASenR": 0.0,
+            "precision_macro": p_macro,
+            "recall_macro": r_macro,
+            "f1_macro": f1_macro,
+            "accuracy_full": acc_full,
+            "mean_perbin_accuracy": mean_acc,
+            "mean_perbin_f1": mean_f1,
+            "runtime_seconds": baseline_runtime,
+            "device": DEVICE_STR
+        }])
+
+        df_main_clean.to_csv(
+            f"{OUT_FOLDER}/seg{SEGMENT_ID}_xgb_v3_clean_metrics.csv",
+            index=False
+        )
+    else:
+        print("\n[BASELINE] Skipped (adv_only mode). Loading existing baseline...")
+        base_models = joblib.load(BASELINE_MODEL_PATH)
+        pred_clean = np.load(BASELINE_PRED_PATH)
+
+    # ---- Robustness (clean-trained models on poisoned test) ---------------
+    if args.mode == "full":
+        print(f"\n[ROBUSTNESS] Evaluating clean-trained XGBoost → {ATTACK} {PCT}%")
+        robust_start = time.time()
+
+        # We already have row-matched splits: Xp_test, yp_test
+        np.save(
+            f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_xgb_v3_{ATTACK}_{PCT}_Xtest.npy",
+            Xp_test
+        )
+        np.save(
+            f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_xgb_v3_{ATTACK}_{PCT}_ytest.npy",
+            yp_test
+        )
+
+        pred_robust = predict_xgb_models(base_models, Xp_test)
+        np.save(
+            f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_xgb_v3_robust_{ATTACK}_{PCT}_pred.npy",
+            pred_robust
+        )
+
+        if ATTACK == "label_flip":
+            asr, flipped_mask = compute_asr_label_flip(
+                pred_robust, y_clean=y_test, y_poison=yp_test
+            )
+            asenr = compute_asenr(pred_clean, pred_robust, flipped_mask)
+        else:
+            # Sensory: build mask according to scope
+            if args.sensory_mask_scope == "entry":
+                poisoned_mask = (Xp_test != X_test)
+            else:  # "row"
+                poisoned_mask = np.any(Xp_test != X_test, axis=1)
+            asr = compute_asr_sensory(pred_clean, pred_robust, poisoned_mask)
+            asenr = compute_asenr(pred_clean, pred_robust, poisoned_mask)
+
+        p_macro, r_macro, f1_macro, acc_full = compute_full_matrix_metrics(yp_test, pred_robust)
+        df_bins = compute_per_bin_metrics(yp_test, pred_robust)
+        df_bins.to_csv(
+            f"{DETAIL_FOLDER}/seg{SEGMENT_ID}_xgb_v3_robust_{ATTACK}_{PCT}_perbin_metrics.csv",
+            index=False
+        )
+
+        mean_acc = df_bins["accuracy"].mean()
+        mean_f1 = df_bins["f1"].mean()
+
+        robust_end = time.time()
+        robust_runtime = robust_end - robust_start
+        print(f"[ROBUSTNESS] Runtime: {robust_runtime:.2f} seconds")
+
+        df_main_robust = pd.DataFrame([{
+            "phase": "robust",
+            "attack": ATTACK,
+            "pct": PCT,
+            "ASR": asr,
+            "ASenR": asenr,
+            "precision_macro": p_macro,
+            "recall_macro": r_macro,
+            "f1_macro": f1_macro,
+            "accuracy_full": acc_full,
+            "mean_perbin_accuracy": mean_acc,
+            "mean_perbin_f1": mean_f1,
+            "runtime_seconds": robust_runtime,
+            "device": DEVICE_STR
+        }])
+
+        df_main_robust.to_csv(ROBUST_METRICS_PATH, index=False)
+
+    # ---- Adversarial training (train on poisoned, test on poisoned) -------
+    if args.mode in ["full", "adv_only"]:
+        print(f"\n[ADV TRAIN] Training XGBoost on {ATTACK} {PCT}% poisoned data...")
+        adv_start = time.time()
+
+        # We already have Xp_train, Xp_test, yp_train, yp_test from row-matched split
+        adv_models = train_xgb_models(Xp_train, yp_train)
+        joblib.dump(adv_models, ADV_MODEL_PATH)
+
+        pred_adv = predict_xgb_models(adv_models, Xp_test)
+        np.save(
+            f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_xgb_v3_advtrain_{ATTACK}_{PCT}_pred.npy",
+            pred_adv
+        )
+
+        if ATTACK == "label_flip":
+            asr_adv, flipped_mask_adv = compute_asr_label_flip(
+                pred_adv, y_clean=yp_test, y_poison=yp_test
+            )
+            asenr_adv = compute_asenr(pred_clean, pred_adv, flipped_mask_adv)
+        else:
+            if args.sensory_mask_scope == "entry":
+                poisoned_mask_adv = (Xp_test != X_test)
+            else:  # "row"
+                poisoned_mask_adv = np.any(Xp_test != X_test, axis=1)
+            asr_adv = compute_asr_sensory(pred_clean, pred_adv, poisoned_mask_adv)
+            asenr_adv = compute_asenr(pred_clean, pred_adv, poisoned_mask_adv)
+
+        p_macro, r_macro, f1_macro, acc_full = compute_full_matrix_metrics(yp_test, pred_adv)
+        df_bins = compute_per_bin_metrics(yp_test, pred_adv)
+        df_bins.to_csv(
+            f"{DETAIL_FOLDER}/seg{SEGMENT_ID}_xgb_v3_advtrain_{ATTACK}_{PCT}_perbin_metrics.csv",
+            index=False
+        )
+
+        mean_acc = df_bins["accuracy"].mean()
+        mean_f1 = df_bins["f1"].mean()
+
+        adv_end = time.time()
+        adv_runtime = adv_end - adv_start
+        print(f"[ADV TRAIN] Runtime: {adv_runtime:.2f} seconds")
+
+        df_main_adv = pd.DataFrame([{
+            "phase": "advtrain",
+            "attack": ATTACK,
+            "pct": PCT,
+            "ASR": asr_adv,
+            "ASenR": asenr_adv,
+            "precision_macro": p_macro,
+            "recall_macro": r_macro,
+            "f1_macro": f1_macro,
+            "accuracy_full": acc_full,
+            "mean_perbin_accuracy": mean_acc,
+            "mean_perbin_f1": mean_f1,
+            "runtime_seconds": adv_runtime,
+            "device": DEVICE_STR
+        }])
+
+        df_main_adv.to_csv(
+            f"{OUT_FOLDER}/seg{SEGMENT_ID}_xgb_v3_advtrain_{ATTACK}_{PCT}_metrics.csv",
+            index=False
+        )
+
+    # ---- Total runtime ----------------------------------------------------
+    total_end = time.time()
+    total_runtime = total_end - total_start
+    print(f"\n[TOTAL] train_xgboost_v3 run completed in {total_runtime:.2f} seconds.\n")
