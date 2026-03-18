@@ -1,0 +1,18 @@
+client_secret.json
+*.token
+*.json
+/.credentials
+gdrive_token.json
+C:/Data/project_cache
+
+# Google Drive API secrets
+client_secret.json
+gdrive_token.json
+.credentials/
+
+# Drive cache
+C:/Data/project_cache/
+
+# Any other local-only JSON
+*.token
+*.secret.json
