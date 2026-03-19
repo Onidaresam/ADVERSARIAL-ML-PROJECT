@@ -30,13 +30,15 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_sc
 import xgboost as xgb
 
 # ------------------------------------------------------------------
-# Drive sync helper (import if available; fallback to local-only)
+# Drive sync helper (import if available; fallback to cache-only)
 # ------------------------------------------------------------------
 try:
     from scripts.gdrive_sync import ensure_local_tree
-except ImportError:
-    ensure_local_tree = None
-
+except Exception as e:
+    print("[WARN] gdrive_sync import failed:", repr(e))
+    # Fallback: just return the local cache root that already exists
+    def ensure_local_tree(*, folder_id=None, cache_root=r"C:\Data\project_cache", client_secret_path=None, **kwargs):
+        return cache_root
 
 # ------------------------------------------------------------------
 # Arguments
@@ -82,16 +84,26 @@ RANDOM_STATE = int(args.seed)
 # ------------------------------------------------------------------
 # Data roots: Drive cache (preferred) with local fallback
 # ------------------------------------------------------------------
-def get_base_path() -> str:
+#def get_base_path() -> str:
     # Preferred: build/refresh local cache from Drive folder
-    if ensure_local_tree is not None:
-        data_root = ensure_local_tree(folder_id=args.folder_id,
-                                      cache_root=args.cache_root,
-                                      client_secret_path=args.client_secret)
+    #if ensure_local_tree is not None:
+        #data_root = ensure_local_tree(folder_id=args.folder_id,
+                                      #cache_root=args.cache_root,
+                                      #client_secret_path=args.client_secret)
         # project_root/data/segments_time
-        return str(Path(data_root) / "data" / "segments_time")
+       # return str(Path(data_root) / "data" / "segments_time")
     # Fallback: repo-relative
-    return str(Path(__file__).resolve().parents[2] / "data" / "segments_time")
+    #return str(Path(__file__).resolve().parents[2] / "data" / "segments_time")
+
+
+def get_base_path():
+    # Always sync from Drive and use the cache root
+    data_root = ensure_local_tree(
+        folder_id=args.folder_id,
+        cache_root=args.cache_root,
+        client_secret_path=args.client_secret
+    )
+    return str(Path(data_root) / "data" / "segments_time")#
 
 
 BASE = get_base_path()
@@ -115,25 +127,33 @@ Path(DETAIL_FOLDER).mkdir(parents=True, exist_ok=True)
 # ------------------------------------------------------------------
 # Device / GPU–CPU auto-fallback for XGBoost
 # ------------------------------------------------------------------
+#def get_xgb_device_params():
+    #try:
+        #Xt = np.zeros((10, 1), dtype=np.float32)
+        #yt = np.zeros(10, dtype=np.int32)
+        #clf = xgb.XGBClassifier(
+            #n_estimators=1, max_depth=1, learning_rate=0.1,
+            #subsample=1.0, colsample_bytree=1.0,
+            #reg_lambda=1.0, reg_alpha=0.0,
+            #objective="binary:logistic", eval_metric="logloss",
+            #use_label_encoder=False,
+            #tree_method="gpu_hist", predictor="gpu_predictor",
+        ##)
+        #clf.fit(Xt, yt)
+        #params = {"tree_method": "gpu_hist", "predictor": "gpu_predictor"}
+        #device_str = "GPU"
+    #except Exception:
+        #params = {"tree_method": "hist", "predictor": "cpu_predictor"}
+        #device_str = "CPU"
+    #return params, device_str
+
 def get_xgb_device_params():
-    try:
-        Xt = np.zeros((10, 1), dtype=np.float32)
-        yt = np.zeros(10, dtype=np.int32)
-        clf = xgb.XGBClassifier(
-            n_estimators=1, max_depth=1, learning_rate=0.1,
-            subsample=1.0, colsample_bytree=1.0,
-            reg_lambda=1.0, reg_alpha=0.0,
-            objective="binary:logistic", eval_metric="logloss",
-            use_label_encoder=False,
-            tree_method="gpu_hist", predictor="gpu_predictor",
-        )
-        clf.fit(Xt, yt)
-        params = {"tree_method": "gpu_hist", "predictor": "gpu_predictor"}
-        device_str = "GPU"
-    except Exception:
-        params = {"tree_method": "hist", "predictor": "cpu_predictor"}
-        device_str = "CPU"
-    return params, device_str
+    n_threads = os.cpu_count() or 8
+    return {
+        "tree_method": "hist",
+        "predictor": "cpu_predictor",
+        "nthread": n_threads,
+    }, f"CPU ({n_threads} threads)"
 
 
 XGB_DEVICE_PARAMS, DEVICE_STR = get_xgb_device_params()
@@ -285,9 +305,11 @@ def make_xgb_classifier():
     return xgb.XGBClassifier(**params)
 
 
+
 def train_xgb_models(X_train, y_train):
     models = []
     for j in range(y_train.shape[1]):
+        print(f"[DEBUG] Training model {j+1}/384...", flush=True)   # <--- ADD THIS LINE
         yj = y_train[:, j]
         unq = np.unique(yj)
         if len(unq) == 1:
