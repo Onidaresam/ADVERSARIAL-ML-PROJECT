@@ -346,7 +346,7 @@ if __name__ == "__main__":
     Xp_train, Xp_test = Xp[idx_train], Xp[idx_test]
     yp_train, yp_test = yp[idx_train], yp[idx_test]
 
-        # ---- Baseline (clean) -------------------------------------------------
+    # ---- Baseline (clean) -------------------------------------------------
     BASELINE_MODEL_PATH = f"{OUT_FOLDER}/seg{SEGMENT_ID}_xgb_v3_clean_models.pkl"
     BASELINE_PRED_PATH  = f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_xgb_v3_clean_pred.npy"
     ROBUST_METRICS_PATH = f"{OUT_FOLDER}/seg{SEGMENT_ID}_xgb_v3_robust_{ATTACK}_{PCT}_metrics.csv"
