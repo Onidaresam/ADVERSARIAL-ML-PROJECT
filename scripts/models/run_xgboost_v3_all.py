@@ -29,7 +29,8 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_sc
 
 import xgboost as xgb
 
-
+import sys, os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
  ------------------------------------------------------------------
 # Drive sync helper (import if available; fallback to cache-only)
 # ------------------------------------------------------------------
