@@ -288,8 +288,8 @@ def compute_asenr(pred_clean, pred_poison, mask):
 # ------------------------------------------------------------------
 def make_xgb_classifier():
     params = {
-        "n_estimators": 300,
-        "max_depth": 6,
+        "n_estimators": 30,
+        "max_depth": 3,
         "learning_rate": 0.1,
         "subsample": 0.8,
         "colsample_bytree": 0.8,
