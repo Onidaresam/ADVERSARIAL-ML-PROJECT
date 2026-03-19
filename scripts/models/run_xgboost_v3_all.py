@@ -415,11 +415,20 @@ if __name__ == "__main__":
             f"{OUT_FOLDER}/seg{SEGMENT_ID}_xgb_v3_clean_metrics.csv",
             index=False
         )
+    
     else:
-        print("\n[BASELINE] Skipped (adv_only mode). Loading existing baseline...")
-        base_models = joblib.load(BASELINE_MODEL_PATH)
-        pred_clean = np.load(BASELINE_PRED_PATH)
+    print("[BASELINE] Recomputing predictions for alignment...")
 
+    base_models = joblib.load(BASELINE_MODEL_PATH)
+
+    # Recompute using CURRENT split (ensures alignment)
+    pred_clean = predict_xgb_models(base_models, X_test)
+
+    #else:
+        #print("\n[BASELINE] Skipped (adv_only mode). Loading existing baseline...")
+        #base_models = joblib.load(BASELINE_MODEL_PATH)
+        #pred_clean = np.load(BASELINE_PRED_PATH)
+ 
     # ---- Robustness (clean-trained models on poisoned test) ---------------
     if args.mode == "full":
         print(f"\n[ROBUSTNESS] Evaluating clean-trained XGBoost → {ATTACK} {PCT}%")
@@ -502,18 +511,37 @@ if __name__ == "__main__":
             pred_adv
         )
 
+        #  DEBUG goes HERE (not at the end)
+        print("\n[DEBUG]")
+        print("X_test:", X_test.shape)
+        print("Xp_test:", Xp_test.shape)
+        print("pred_clean:", pred_clean.shape)
+        print("pred_adv:", pred_adv.shape)
+        
         if ATTACK == "label_flip":
+            # Use ORIGINAL clean labels for comparison
+            _, y_clean_full = load_clean()
+            y_clean_test = y_clean_full[idx_test]
+         
             asr_adv, flipped_mask_adv = compute_asr_label_flip(
-                pred_adv, y_clean=yp_test, y_poison=yp_test
+                pred_adv, 
+                y_clean=yp_test, 
+                y_poison=yp_test
             )
             asenr_adv = compute_asenr(pred_clean, pred_adv, flipped_mask_adv)
         else:
             if args.sensory_mask_scope == "entry":
-                poisoned_mask_adv = (Xp_test != X_test)
+                poisoned_mask_adv = np.not_equal(Xp_test, X_test)
+                poisoned_mask_adv = np.abs(Xp_test - X_test) > 1e-6
             else:  # "row"
                 poisoned_mask_adv = np.any(Xp_test != X_test, axis=1)
-            asr_adv = compute_asr_sensory(pred_clean, pred_adv, poisoned_mask_adv)
-            asenr_adv = compute_asenr(pred_clean, pred_adv, poisoned_mask_adv)
+                asr_adv = compute_asr_sensory(pred_clean, pred_adv, poisoned_mask_adv)
+                asenr_adv = compute_asenr(pred_clean, pred_adv, poisoned_mask_adv)
+       
+     
+        # ---- Sanity Checks here
+        assert pred_clean.shape == pred_adv.shape, "Shape mismatch: clean vs adv predictions"
+        assert pred_clean.shape[0] == X_test.shape[0], "Prediction/test misalignment"
 
         p_macro, r_macro, f1_macro, acc_full = compute_full_matrix_metrics(yp_test, pred_adv)
         df_bins = compute_per_bin_metrics(yp_test, pred_adv)
