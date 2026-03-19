@@ -29,13 +29,17 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_sc
 
 import xgboost as xgb
 
-# ------------------------------------------------------------------
-# Drive sync helper (import if available; fallback to local-only)
+
+ ------------------------------------------------------------------
+# Drive sync helper (import if available; fallback to cache-only)
 # ------------------------------------------------------------------
 try:
     from scripts.gdrive_sync import ensure_local_tree
-except ImportError:
-    ensure_local_tree = None
+except Exception as e:
+    print("[WARN] gdrive_sync import failed:", repr(e), flush=True)
+    # Fallback: just return the local cache root that already exists
+    def ensure_local_tree(*, folder_id=None, cache_root=r"C:\Data\project_cache", client_secret_path=None, **kwargs):
+        return cache_root
 
 
 # ------------------------------------------------------------------
@@ -115,6 +119,7 @@ Path(DETAIL_FOLDER).mkdir(parents=True, exist_ok=True)
 # ------------------------------------------------------------------
 # Device / GPU–CPU auto-fallback for XGBoost
 # ------------------------------------------------------------------
+"""
 def get_xgb_device_params():
     try:
         Xt = np.zeros((10, 1), dtype=np.float32)
@@ -134,6 +139,18 @@ def get_xgb_device_params():
         params = {"tree_method": "hist", "predictor": "cpu_predictor"}
         device_str = "CPU"
     return params, device_str
+"""
+
+# ------------------------------------------------------------------
+# Device / CPU settings for XGBoost (Windows + Py3.12)
+# ------------------------------------------------------------------
+def get_xgb_device_params():
+    n_threads = os.cpu_count() or 8
+    return {
+        "tree_method": "hist",
+        "predictor": "cpu_predictor",
+        "nthread": n_threads,
+    }, f"CPU ({n_threads} threads)"
 
 
 XGB_DEVICE_PARAMS, DEVICE_STR = get_xgb_device_params()
