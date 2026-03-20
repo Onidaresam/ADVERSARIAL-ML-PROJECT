@@ -548,6 +548,12 @@ if __name__ == "__main__":
 
     preds_robust = predict_model(model_clean, Xp_test)
 
+    print("\n[DEBUG ROBUST] sensory check")
+    print("  Xp_test != X_test entries:", (Xp_test != X_test).sum())
+    print("  any poisoned rows:", np.any(Xp_test != X_test, axis=1).sum())
+    print("  preds_clean != preds_robust entries:", (preds_clean != preds_robust).sum())
+
+    
     if ATTACK == "label_flip":
         asr, flipped_mask = compute_asr_label_flip(preds_robust, y_clean=y_test, y_poison=yp_test)
         asenr = compute_asenr(preds_clean, preds_robust, flipped_mask)
@@ -571,6 +577,9 @@ if __name__ == "__main__":
     df_bins_robust = compute_per_bin_metrics(
         yp_test, preds_robust, phase_name="robust", attack=ATTACK, pct=PCT
     )
+
+
+
 
     metrics_robust["mean_perbin_accuracy"] = df_bins_robust["accuracy"].mean()
     metrics_robust["mean_perbin_f1"] = df_bins_robust["f1"].mean()
@@ -604,6 +613,11 @@ if __name__ == "__main__":
     model_adv = train_model(model_adv, train_loader_adv, val_loader_adv, cb_focal_adv)
 
     preds_adv = predict_model(model_adv, Xp_test)
+
+    print("\n[DEBUG ADVTRAIN] sensory check")
+    print("  Xp_test != X_test entries:", (Xp_test != X_test).sum())
+    print("  any poisoned rows:", np.any(Xp_test != X_test, axis=1).sum())
+    print("  preds_clean != preds_adv entries:", (preds_clean != preds_adv).sum())
 
     if ATTACK == "label_flip":
         asr_adv, flipped_mask_adv = compute_asr_label_flip(
