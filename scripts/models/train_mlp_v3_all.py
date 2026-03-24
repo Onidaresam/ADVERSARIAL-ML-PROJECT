@@ -523,6 +523,14 @@ if __name__ == "__main__":
 
     preds_clean = predict_model(model_clean, X_test)
 
+    compute_per_entry_metrics(
+        y_test, y_test,
+        preds_clean, preds_clean,
+        poisoned_mask=np.zeros_like(preds_clean),  # no poisoning
+        phase_name="baseline"
+    )
+
+    
     metrics_clean = {
         "accuracy_full": accuracy_score(y_test, preds_clean),
         "precision_full": precision_score(y_test, preds_clean, average="macro", zero_division=0),
@@ -547,6 +555,15 @@ if __name__ == "__main__":
     print(f"\n[ROBUSTNESS] Evaluating clean-trained MLP → {ATTACK} {PCT}%")
 
     preds_robust = predict_model(model_clean, Xp_test)
+
+    compute_per_entry_metrics(
+        y_test, yp_test,
+        preds_clean, preds_robust,
+        poisoned_mask,
+        phase_name="robust",
+        attack=ATTACK,
+        pct=PCT
+    )
 
     print("\n[DEBUG ROBUST] sensory check")
     print("  Xp_test != X_test entries:", (Xp_test != X_test).sum())
@@ -614,6 +631,16 @@ if __name__ == "__main__":
 
     preds_adv = predict_model(model_adv, Xp_test)
 
+    compute_per_entry_metrics(
+        y_test, yp_test,
+        preds_clean, preds_adv,
+        poisoned_mask_adv,
+        phase_name="advtrain",
+        attack=ATTACK,
+        pct=PCT
+    )
+
+    
     print("\n[DEBUG ADVTRAIN] sensory check")
     print("  Xp_test != X_test entries:", (Xp_test != X_test).sum())
     print("  any poisoned rows:", np.any(Xp_test != X_test, axis=1).sum())
