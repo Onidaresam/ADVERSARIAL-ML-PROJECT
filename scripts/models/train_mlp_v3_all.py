@@ -93,12 +93,18 @@ SEG_FOLDER = f"{BASE}/segments_time/segment_{SEGMENT_ID}"
 clean_file = f"{SEG_FOLDER}/Cleaned_Data_{SEGMENT_ID}.csv"
 label_file = f"{SEG_FOLDER}/Label_Matrix_{SEGMENT_ID}.csv"
 
-SENSORY_FOLDER = f"{SEG_FOLDER}/sensory_poison_v3"
+#SENSORY_FOLDER = f"{SEG_FOLDER}/sensory_poison_v3"
+SENSORY_FOLDER = f"{SEG_FOLDER}/sensory_poison_v4"
 LABEL_FLIP_FOLDER = f"{SEG_FOLDER}/label_flips_v3"
 
-OUT_FOLDER = f"{SEG_FOLDER}/models_reducedscope/mlp_v3"
-DETAIL_FOLDER = f"{SEG_FOLDER}/models_reducedscope/mlp_v3_details"
-TEST_SPLIT_FOLDER = f"{SEG_FOLDER}/models_reducedscope/testsplits_mlp_v3"
+#OUT_FOLDER = f"{SEG_FOLDER}/models_reducedscope/mlp_v3"
+#DETAIL_FOLDER = f"{SEG_FOLDER}/models_reducedscope/mlp_v3_details"
+#TEST_SPLIT_FOLDER = f"{SEG_FOLDER}/models_reducedscope/testsplits_mlp_v3"
+
+OUT_FOLDER = f"{SEG_FOLDER}/models_reducedscope/mlp_v4"
+DETAIL_FOLDER = f"{SEG_FOLDER}/models_reducedscope/mlp_v4_details"
+TEST_SPLIT_FOLDER = f"{SEG_FOLDER}/models_reducedscope/testsplits_mlp_v4"
+
 
 os.makedirs(OUT_FOLDER, exist_ok=True)
 os.makedirs(DETAIL_FOLDER, exist_ok=True)
