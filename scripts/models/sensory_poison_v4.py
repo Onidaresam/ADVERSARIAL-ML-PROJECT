@@ -11,9 +11,11 @@ Fully compatible with --attack sensory_add1.
 """
 
 import os
+import sys
 import numpy as np
 import pandas as pd
 from pathlib import Path
+sys.path.append(str(Path(__file__).resolve().parents[2]))
 from scripts.gdrive_sync import ensure_local_tree
 
 # ============================================================
