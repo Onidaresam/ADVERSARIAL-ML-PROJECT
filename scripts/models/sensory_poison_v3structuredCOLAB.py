@@ -17,8 +17,8 @@ from pathlib import Path
 # ============================================================
 # COLAB: MOUNT GOOGLE DRIVE
 # ============================================================
-from google.colab import drive
-drive.mount('/content/drive')
+#from google.colab import drive
+#drive.mount('/content/drive')
 
 # ============================================================
 # CONFIG
