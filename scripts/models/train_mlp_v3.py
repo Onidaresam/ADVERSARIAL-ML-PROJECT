@@ -492,9 +492,21 @@ if __name__ == "__main__":
         asr, flipped_mask = compute_asr_label_flip(preds_robust, y_clean=y_test, y_poison=yp_test)
         asenr = compute_asenr(preds_clean, preds_robust, flipped_mask)
     else:
-        poisoned_mask = np.zeros_like(preds_clean, dtype=bool)
-        asr = compute_asr_sensory(preds_clean, preds_robust, poisoned_mask)
-        asenr = compute_asenr(preds_clean, preds_robust, poisoned_mask)
+    # Load the clean test split to align with classical models
+    X_test_clean = np.load(f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_clean_Xtest.npy")
+
+    # Align shapes (poisoned test may be slightly shorter due to shuffle)
+    min_rows = min(X_test_clean.shape[0], Xp_test.shape[0])
+    X_test_clean = X_test_clean[:min_rows]
+    Xp_test_aligned = Xp_test[:min_rows]
+
+    # Compute poisoned mask exactly like classical models
+    poisoned_mask = (Xp_test_aligned != X_test_clean)
+
+    # Compute ASR and ASenR
+    asr = compute_asr_sensory(preds_clean[:min_rows], preds_robust[:min_rows], poisoned_mask)
+    asenr = compute_asenr(preds_clean[:min_rows], preds_robust[:min_rows], poisoned_mask)
+
 
     metrics_robust = {
         "accuracy_full": accuracy_score(yp_test, preds_robust),
@@ -550,9 +562,21 @@ if __name__ == "__main__":
         asr_adv, flipped_mask_adv = compute_asr_label_flip(preds_adv, y_clean=yp_test_adv, y_poison=yp_test_adv)
         asenr_adv = compute_asenr(preds_clean, preds_adv, flipped_mask_adv)
     else:
-        poisoned_mask_adv = np.zeros_like(preds_clean, dtype=bool)
-        asr_adv = compute_asr_sensory(preds_clean, preds_adv, poisoned_mask_adv)
-        asenr_adv = compute_asenr(preds_clean, preds_adv, poisoned_mask_adv)
+    # Load clean test split for alignment
+    X_test_clean = np.load(f"{TEST_SPLIT_FOLDER}/seg{SEGMENT_ID}_clean_Xtest.npy")
+
+    # Align shapes
+    min_rows = min(X_test_clean.shape[0], Xp_test_adv.shape[0])
+    X_test_clean = X_test_clean[:min_rows]
+    Xp_test_adv_aligned = Xp_test_adv[:min_rows]
+
+    # Compute poisoned mask
+    poisoned_mask_adv = (Xp_test_adv_aligned != X_test_clean)
+
+    # Compute ASR and ASenR
+    asr_adv = compute_asr_sensory(preds_clean[:min_rows], preds_adv[:min_rows], poisoned_mask_adv)
+    asenr_adv = compute_asenr(preds_clean[:min_rows], preds_adv[:min_rows], poisoned_mask_adv)
+
 
     metrics_adv = {
         "accuracy_full": accuracy_score(yp_test_adv, preds_adv),
